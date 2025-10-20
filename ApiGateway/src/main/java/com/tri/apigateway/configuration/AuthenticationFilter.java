@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tri.apigateway.dto.response.ApiResponse;
 import com.tri.apigateway.enums.ErrorCode;
 import com.tri.apigateway.service.IdentityService;
+import com.tri.apigateway.util.JwtUtil;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -31,12 +32,16 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PACKAGE, makeFinal = true)
 public class AuthenticationFilter implements GlobalFilter, Ordered {
-    IdentityService identityService;
+    JwtUtil jwtUtil;
     ObjectMapper objectMapper;
 
 
     private String[] publicEndpoints = {
-            "/account/auth/.*",
+            "/auth/register",
+            "/auth/register-teacher",
+            "/auth/login",
+
+
     };
 
     @Value("${app.api-prefix}")
@@ -45,24 +50,23 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        log.info("Enter authentication filter....");
-
-        if (isPublicEndpoint(exchange.getRequest()))
-            return chain.filter(exchange);
-
-        List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
-        if (CollectionUtils.isEmpty(authHeader))
-            return unauthenticated(exchange.getResponse());
-
-        String token = authHeader.getFirst().replace("Bearer ", "");
-        log.info("Token: {}", token);
-
-        return identityService.introspect(token).flatMap(introspectResponse -> {
-            if (introspectResponse.getData().valid())
-                return chain.filter(exchange);
-            else
-                return unauthenticated(exchange.getResponse());
-        }).onErrorResume(throwable -> unauthenticated(exchange.getResponse()));
+//        log.info("Enter authentication filter....");
+//
+//        if (isPublicEndpoint(exchange.getRequest()))
+//            return chain.filter(exchange);
+//
+//        List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+//        if (CollectionUtils.isEmpty(authHeader))
+//            return unauthenticated(exchange.getResponse());
+//
+//        String token = authHeader.getFirst().replace("Bearer ", "");
+//        log.info("Token: {}", token);
+//
+//        if (jwtUtil.validateToken(token)){
+//            return chain.filter(exchange);
+//        }
+//        return unauthenticated(exchange.getResponse());
+        return chain.filter(exchange);
     }
 
     @Override

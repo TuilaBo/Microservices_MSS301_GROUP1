@@ -2,7 +2,8 @@ server:
   port: 8888
 
 app:
-  api-prefix: /api/v1
+  api-prefix: /api
+  jwt-secret: 2f3d7c9a0b1e4f6a8c2d5e7f9b1c3d5e7f9a2b4c6d8e0f1a3b5c7d9e1f3a5b7
 
 spring:
   application:
@@ -12,9 +13,7 @@ spring:
       server:
         webflux:
           routes:
-            - id: identity_service
-              uri: http://localhost:8080
+            - id: account_service
+              uri: http://localhost:8081
               predicates:
-                - Path=${app.api-prefix}/identity/**
-              filters:
-                - StripPrefix=2
+                - Path=${app.api-prefix}/**
