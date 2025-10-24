@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/AIService/pom.xml" />
         <option value="$PROJECT_DIR$/AccountService/pom.xml" />
         <option value="$PROJECT_DIR$/LessonService/pom.xml" />
+        <option value="$PROJECT_DIR$/QuestionService/pom.xml" />
       </list>
     </option>
   </component>
