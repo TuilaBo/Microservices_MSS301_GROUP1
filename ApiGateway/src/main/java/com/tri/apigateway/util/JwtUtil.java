@@ -34,10 +34,11 @@ public class JwtUtil {
 
     public boolean validateToken(final String token) {
         try {
-            Jwts.parserBuilder()
+            var jwt = Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
                     .parseClaimsJws(token);
+            System.out.println(jwt.getBody().get("role"));
             return true;
         } catch (MalformedJwtException ex) {
             log.error("Invalid JWT token");
