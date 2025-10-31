@@ -8,12 +8,14 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="ApiGateway" />
+        <module name="PaymentService" />
       </profile>
       <profile name="Annotation profile for QuestionService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
         <module name="QuestionService" />
@@ -25,7 +27,6 @@
     <bytecodeTargetLevel>
       <module name="APIGateway" target="17" />
       <module name="EurekaServer" target="17" />
-      <module name="PaymentService" target="17" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
@@ -34,6 +35,7 @@
       <module name="AccountService" options="-parameters" />
       <module name="ApiGateway" options="-parameters" />
       <module name="LessonService" options="-parameters" />
+      <module name="PaymentService" options="-parameters" />
       <module name="QuestionService" options="-parameters" />
     </option>
   </component>
