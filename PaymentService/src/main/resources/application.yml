@@ -17,7 +17,6 @@ spring:
 server:
   port: 8082
 
-# VNPay sandbox - please replace with your sandbox credentials
 vnpay:
   tmnCode: 6LWTQHBO
   hashSecret: SZE1HBAGJ0V44LTM85NW9FUE4AM9WVGI
@@ -25,4 +24,5 @@ vnpay:
   returnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/pay-result
 #  muốn test api của payment thì vào powershell paste dòng này: ngrok http 8082 xong nó tạo
 #  ra url thì ae thay vào returnUrl và ipnUrl chừa khúc /api chở đi lại
+#  https://sandbox:vnpayment:vn/apis/vnpay-demo/: đây là link chứa các thông tin thẻ để test
   ipnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/ipn
