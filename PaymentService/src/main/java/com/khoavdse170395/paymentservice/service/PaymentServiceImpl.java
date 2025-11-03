@@ -32,12 +32,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final OutboxRepo outboxRepo;
     private final PaymentProps vnp;
     private final ObjectMapper om = new ObjectMapper();
+    private final MembershipService membershipService;
 
-    public PaymentServiceImpl(OrderRepo orderRepo, PaymentRepo paymentRepo, OutboxRepo outboxRepo, PaymentProps vnp){
+    public PaymentServiceImpl(OrderRepo orderRepo, PaymentRepo paymentRepo, OutboxRepo outboxRepo, PaymentProps vnp, MembershipService membershipService){
         this.orderRepo = orderRepo;
         this.paymentRepo = paymentRepo;
         this.outboxRepo = outboxRepo;
         this.vnp = vnp;
+        this.membershipService = membershipService;
     }
 
     @Override
@@ -101,6 +103,15 @@ public class PaymentServiceImpl implements PaymentService {
         order.setStatus("PAID");
         orderRepo.save(order);
 
+        // Activate any membership linked to this txnRef (paymentReference)
+        try {
+            membershipService.activateMembershipByPaymentReference(txnRef, p.getAmountVnd());
+        } catch (Exception ex) {
+            // log and continue; membership activation failure shouldn't block payment processing
+            // (Assuming we have a logger; keep simple here)
+            System.err.println("Failed to activate membership for txnRef=" + txnRef + ": " + ex.getMessage());
+        }
+
         emitOutbox("PAYMENT_SUCCEEDED","Payment", p.getId(), Map.of(
                 "orderId", order.getId(),
                 "amountVnd", p.getAmountVnd(),
@@ -144,4 +155,3 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 }
-

@@ -22,5 +22,5 @@ vnpay:
   tmnCode: 6LWTQHBO
   hashSecret: SZE1HBAGJ0V44LTM85NW9FUE4AM9WVGI
   payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  returnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/payments/vnpay/pay-result
-  ipnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/payments/vnpay/ipn
+  returnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/pay-result
+  ipnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/ipn
