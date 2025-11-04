@@ -94,5 +94,10 @@ public class AuthenController {
         ));
     }
 
+    @GetMapping("/ping")
+    public String success() {
+        return "Ok";
+    }
+
 }
 
