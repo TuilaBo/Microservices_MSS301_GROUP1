@@ -2,8 +2,11 @@ package com.khoavdse170395.accountservice.controller;
 
 import com.khoavdse170395.accountservice.model.Account;
 import com.khoavdse170395.accountservice.model.dto.AccountCreateRequest;
+import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
 import com.khoavdse170395.accountservice.model.dto.JWTAuthResponse;
 import com.khoavdse170395.accountservice.model.dto.LoginDto;
+import com.khoavdse170395.accountservice.model.dto.ResendCodeRequest;
+import com.khoavdse170395.accountservice.model.dto.VerifyRequest;
 import com.khoavdse170395.accountservice.security.JwtTokenProvider;
 import com.khoavdse170395.accountservice.service.AccountService;
 import jakarta.validation.Valid;
@@ -94,6 +97,24 @@ public class AuthenController {
         ));
     }
 
+
+    @GetMapping("/me")
+    public ResponseEntity<AccountResponseDTO> getMe() {
+        AccountResponseDTO accountDTO = accountService.getCurrentAccountDTO();
+        return ResponseEntity.ok(accountDTO);
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<String> verifyAccount(@RequestBody @Valid VerifyRequest request) {
+        accountService.verifyAccount(request.getEmail(), request.getCode());
+        return new ResponseEntity<>("Account verified successfully!", HttpStatus.OK);
+    }
+
+    @PostMapping("/resend-code")
+    public ResponseEntity<String> resendVerificationCode(@RequestBody @Valid ResendCodeRequest request) {
+        accountService.sendVerificationCode(request.getEmail());
+        return new ResponseEntity<>("Verification code sent to your email!", HttpStatus.OK);
+    }
 
     @GetMapping("/ping")
     public String success() {
