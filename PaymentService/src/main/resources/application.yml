@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=PaymentServiceDB;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: 12345
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+
+server:
+  port: 8082
+
+vnpay:
+  tmnCode: 6LWTQHBO
+  hashSecret: SZE1HBAGJ0V44LTM85NW9FUE4AM9WVGI
+  payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  returnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/pay-result
+#  muốn test api của payment thì vào powershell paste dòng này: ngrok http 8082 xong nó tạo
+#  ra url thì ae thay vào returnUrl và ipnUrl chừa khúc /api chở đi lại
+#  https://sandbox:vnpayment:vn/apis/vnpay-demo/: đây là link chứa các thông tin thẻ để test
+  ipnUrl: https://courtly-nonprocurable-casimira.ngrok-free.dev/api/payments/vnpay/ipn
