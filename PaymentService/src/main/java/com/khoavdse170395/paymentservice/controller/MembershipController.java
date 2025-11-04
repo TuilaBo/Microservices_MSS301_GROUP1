@@ -48,14 +48,14 @@ public class MembershipController {
 
             // create order
             OrderEntity order = new OrderEntity();
-            order.setUserId(req.getUserId().intValue());
+            order.setUserId(req.getUserId().longValue());
             order.setItemType("MEMBERSHIP");
             // DB schema requires item_id NOT NULL; use 0 as sentinel for membership (no specific item id)
             order.setItemId(0);
             order.setTitle("Membership " + req.getTier().name());
             order.setAmountVnd(price);
             order.setStatus("PENDING");
-            order.setUserId(req.getUserId().intValue());
+            order.setUserId(req.getUserId().longValue());
             orderRepo.save(order);
 
             // determine client IP
@@ -106,7 +106,7 @@ public class MembershipController {
 
         // create order
         OrderEntity order = new OrderEntity();
-        order.setUserId(req.getUserId().intValue());
+        order.setUserId(req.getUserId().longValue());
         order.setItemType("MEMBERSHIP");
         // DB schema requires item_id NOT NULL; use 0 as sentinel for membership (no specific item id)
         order.setItemId(0);
