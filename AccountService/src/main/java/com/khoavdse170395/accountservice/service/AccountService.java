@@ -1,6 +1,7 @@
 package com.khoavdse170395.accountservice.service;
 
 import com.khoavdse170395.accountservice.model.Account;
+import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,5 +15,8 @@ public interface AccountService {
     Optional<Account> getAccountById(long accountId);
     void deleteAccount(long accountId);
     Account updateAccount(long id,Account account);
-    Optional<Account> getByUsername(String username);
+    Account getCurrentAccount();
+    AccountResponseDTO getCurrentAccountDTO();
+    void sendVerificationCode(String email);
+    void verifyAccount(String email, String code);
 }

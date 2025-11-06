@@ -111,8 +111,40 @@
             </div>
         </div>
 
+        <!-- Membership block: shown when controller adds membership to model -->
+        <div class="info" th:if="${membership != null}">
+            <h3 style="margin-top:0;">Thông tin Membership</h3>
+            <div class="info-row">
+                <span class="label">ID Membership:</span>
+                <span class="value" th:text="${membership.id}">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">User ID:</span>
+                <span class="value" th:text="${membership.userId}">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Hạng:</span>
+                <span class="value" th:text="${membership.tier}">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Trạng thái:</span>
+                <span class="value" th:text="${membership.status}">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Bắt đầu:</span>
+                <span class="value" th:text="${membership.startDate != null} ? ${membership.startDate} : '-'">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Kết thúc:</span>
+                <span class="value" th:text="${membership.endDate != null} ? ${membership.endDate} : '-'">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Số tiền thanh toán:</span>
+                <span class="value" th:text="${membership.pricePaid}">-</span>
+            </div>
+        </div>
+
         <a href="/" class="btn">Quay lại trang chủ</a>
     </div>
 </body>
 </html>
-

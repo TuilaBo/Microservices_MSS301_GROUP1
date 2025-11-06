@@ -12,7 +12,7 @@ public class OrderEntity {
     private Integer id;
 
     @Column(nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(nullable = false, length = 50)
     private String itemType; // CLASS | QUIZ | SUBSCRIPTION
@@ -46,8 +46,8 @@ public class OrderEntity {
     // getters and setters
     public Integer getId(){ return id; }
     public void setId(Integer id){ this.id = id; }
-    public Integer getUserId(){ return userId; }
-    public void setUserId(Integer userId){ this.userId = userId; }
+    public Long getUserId(){ return userId; }
+    public void setUserId(Long userId){ this.userId = userId; }
     public String getItemType(){ return itemType; }
     public void setItemType(String itemType){ this.itemType = itemType; }
     public Integer getItemId(){ return itemId; }

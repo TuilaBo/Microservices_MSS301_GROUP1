@@ -6,6 +6,8 @@ import com.khoavdse170395.paymentservice.controller.dto.CreatePaymentResponse;
 import com.khoavdse170395.paymentservice.config.PaymentProps;
 import com.khoavdse170395.paymentservice.service.PaymentServiceImpl;
 import com.khoavdse170395.paymentservice.util.PaymentSigner;
+import com.khoavdse170395.paymentservice.controller.dto.MembershipResponse;
+import com.khoavdse170395.paymentservice.service.MembershipService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -29,10 +31,12 @@ public class PaymentController {
 
     private final PaymentServiceImpl service;
     private final PaymentProps vnp;
+    private final MembershipService membershipService;
 
-    public PaymentController(PaymentServiceImpl service, PaymentProps vnp) {
+    public PaymentController(PaymentServiceImpl service, PaymentProps vnp, MembershipService membershipService) {
         this.service = service;
         this.vnp = vnp;
+        this.membershipService = membershipService;
     }
 
     @PostMapping("/create")
@@ -127,6 +131,15 @@ public class PaymentController {
                 if (txnRef != null) {
                     service.markSucceeded(txnRef, transactionNo);
                 }
+                // If there is a membership associated with this payment, include it in the model
+                if (txnRef != null) {
+                    try {
+                        MembershipResponse mem = membershipService.getByPaymentReference(txnRef);
+                        model.addAttribute("membership", mem);
+                    } catch (Exception ignore) {
+                        // no membership found or error; ignore so user still sees payment result
+                    }
+                }
             } catch (Exception ex) {
                 // Log the exception so it can be investigated; do not break the user flow
                 logger.error("Failed to mark payment succeeded for txnRef={}. Will rely on IPN to reconcile.", txnRef, ex);
@@ -139,6 +152,66 @@ public class PaymentController {
                 }
             } catch (Exception ex) {
                 logger.warn("Failed to mark payment failed for txnRef={}. Will rely on IPN to reconcile.", txnRef, ex);
+            }
+
+            // Also try to include membership if present (may show pending state)
+            if (txnRef != null) {
+                try {
+                    MembershipResponse mem = membershipService.getByPaymentReference(txnRef);
+                    model.addAttribute("membership", mem);
+                } catch (Exception ignore) {
+                    // ignore
+                }
+            }
+        }
+
+        return "payment-result";
+    }
+
+    @PostMapping("/admin/simulate-return")
+    public String simulateReturn(@RequestParam String txnRef,
+                                 @RequestParam(defaultValue = "00") String responseCode,
+                                 @RequestParam(required = false) String transactionNo,
+                                 @RequestParam(required = false) Long amount,
+                                 Model model) {
+        boolean success = "00".equals(responseCode);
+
+        model.addAttribute("success", success);
+        model.addAttribute("txnRef", txnRef != null ? txnRef : "-");
+        model.addAttribute("responseCode", responseCode != null ? responseCode : "-");
+        model.addAttribute("transactionNo", transactionNo);
+
+        if (amount != null) {
+            java.text.NumberFormat formatter = java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN"));
+            model.addAttribute("amount", formatter.format(amount) + " VND");
+        }
+
+        if (success) {
+            model.addAttribute("message", "Giao dịch của bạn đã được xử lý thành công!");
+            try {
+                service.markSucceeded(txnRef, transactionNo);
+            } catch (Exception ex) {
+                logger.error("Failed to mark payment succeeded for txnRef={}.", txnRef, ex);
+            }
+            // Include membership if any
+            if (txnRef != null) {
+                try {
+                    MembershipResponse mem = membershipService.getByPaymentReference(txnRef);
+                    model.addAttribute("membership", mem);
+                } catch (Exception ignore) {}
+            }
+        } else {
+            model.addAttribute("message", getErrorMessage(responseCode));
+            try {
+                service.markFailed(txnRef, "SIMULATED=" + responseCode);
+            } catch (Exception ex) {
+                logger.warn("Failed to mark payment failed for txnRef={}.", txnRef, ex);
+            }
+            if (txnRef != null) {
+                try {
+                    MembershipResponse mem = membershipService.getByPaymentReference(txnRef);
+                    model.addAttribute("membership", mem);
+                } catch (Exception ignore) {}
             }
         }
 
