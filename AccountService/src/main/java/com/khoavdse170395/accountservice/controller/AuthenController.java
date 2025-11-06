@@ -3,6 +3,7 @@ package com.khoavdse170395.accountservice.controller;
 import com.khoavdse170395.accountservice.model.Account;
 import com.khoavdse170395.accountservice.model.dto.AccountCreateRequest;
 import com.khoavdse170395.accountservice.model.dto.JWTAuthResponse;
+import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
 import com.khoavdse170395.accountservice.model.dto.LoginDto;
 import com.khoavdse170395.accountservice.security.JwtTokenProvider;
 import com.khoavdse170395.accountservice.service.AccountService;
@@ -98,6 +99,32 @@ public class AuthenController {
     @GetMapping("/ping")
     public String success() {
         return "Ok";
+    }
+
+    @GetMapping("/get-my-infor")
+    public ResponseEntity<AccountResponseDTO> getMyInfor(@AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails currentUser) {
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String username = currentUser.getUsername();
+        Account account = accountService.getByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found for username: " + username));
+
+        AccountResponseDTO dto = new AccountResponseDTO(
+                account.getUserId(),
+                account.getUsername(),
+                account.getEmail(),
+                account.getRole() != null ? account.getRole().getRoleName() : null,
+                account.isActive(),
+                account.getCreatedAt(),
+                account.getFullName(),
+                account.getGender(),
+                account.getBirthday(),
+                account.getGrade()
+        );
+
+        return ResponseEntity.ok(dto);
     }
 
 }

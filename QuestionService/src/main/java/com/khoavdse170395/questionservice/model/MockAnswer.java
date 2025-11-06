@@ -23,13 +23,15 @@ public class MockAnswer {
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    private Long accountId;
+    private String answerText;
+
+    private String comments;
 
     private Integer answerPoint;
 
     private QuestionType questionType;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(referencedColumnName = "id")
     private MockOption mockOption;
 

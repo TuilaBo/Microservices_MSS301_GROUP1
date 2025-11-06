@@ -2,6 +2,7 @@ package com.khoavdse170395.questionservice.controller;
 
 import com.khoavdse170395.questionservice.model.dto.MockTestDTO;
 import com.khoavdse170395.questionservice.service.MockTestService;
+import com.khoavdse170395.questionservice.service.MockAttemptService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 public class MockTestController {
 
     private final MockTestService mockTestService;
+    private final MockAttemptService mockAttemptService;
 
     @GetMapping
     @Operation(summary = "List mock tests", description = "Retrieve all mock tests as DTOs.")
@@ -49,6 +51,13 @@ public class MockTestController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         mockTestService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{testId}/attempts/start")
+    @Operation(summary = "Start attempt for test", description = "Create a new attempt for the current user for the given test. Enforces single in-progress attempt per user+test.")
+    public ResponseEntity<com.khoavdse170395.questionservice.model.dto.MockAttemptDTO> startAttempt(@PathVariable Long testId) {
+        var created = mockAttemptService.startAttempt(testId);
+        return ResponseEntity.created(URI.create("/api/mock-attempts/" + created.getId())).body(created);
     }
 }
 

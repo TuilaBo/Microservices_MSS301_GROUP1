@@ -1,16 +1,29 @@
 package com.khoavdse170395.questionservice.service.impl;
 
-import com.khoavdse170395.questionservice.model.MockAnswer;
-import com.khoavdse170395.questionservice.model.MockAttempt;
+import com.khoavdse170395.questionservice.model.*;
 import com.khoavdse170395.questionservice.model.dto.MockAnswerDTO;
 import com.khoavdse170395.questionservice.model.dto.MockAttemptDTO;
 import com.khoavdse170395.questionservice.repository.MockAnswerRepository;
 import com.khoavdse170395.questionservice.repository.MockAttemptRepository;
+import com.khoavdse170395.questionservice.repository.MockQuestionRepository;
+import com.khoavdse170395.questionservice.repository.MockOptionRepository;
+import com.khoavdse170395.questionservice.repository.MockTestRepository;
 import com.khoavdse170395.questionservice.service.MockAttemptService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import com.khoavdse170395.questionservice.client.AccountServiceClient;
+import com.khoavdse170395.questionservice.client.dto.AccountDTO;
+import com.khoavdse170395.questionservice.client.AIGradingClient;
+import com.khoavdse170395.questionservice.client.dto.ai.GradingApiResponse;
+import com.khoavdse170395.questionservice.client.dto.ai.QuestionAnswerRequest;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -23,12 +36,23 @@ public class MockAttemptServiceImpl implements MockAttemptService {
 
     private final MockAttemptRepository mockAttemptRepository;
     private final MockAnswerRepository mockAnswerRepository;
+    private final MockQuestionRepository mockQuestionRepository;
+    private final MockOptionRepository mockOptionRepository;
+    private final MockTestRepository mockTestRepository;
+    private final AccountServiceClient accountServiceClient;
+    private final AIGradingClient aiGradingClient;
 
     @Override
     public MockAttemptDTO create(MockAttemptDTO dto) {
         MockAttempt entity = new MockAttempt();
         apply(dto, entity);
-        MockAttempt saved = mockAttemptRepository.save(entity);
+        MockAttempt saved;
+        try {
+            saved = mockAttemptRepository.save(entity);
+        } catch (DataIntegrityViolationException ex) {
+            // In case of race condition with DB unique/partial unique index
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Attempt already in progress", ex);
+        }
         return toDTO(saved);
     }
 
@@ -59,11 +83,195 @@ public class MockAttemptServiceImpl implements MockAttemptService {
         return mockAttemptRepository.findAll().stream().map(this::toDTO).toList();
     }
 
+    @Override
+    public MockAnswerDTO addAnswer(Long attemptId, MockAnswerDTO answerDTO) {
+        MockAttempt attempt = mockAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + attemptId));
+
+        ensureOwnership(attempt);
+
+        if (attempt.getStatus() == AttemptStatus.FINISHED) {
+            throw new IllegalStateException("Attempt already finished");
+        }
+
+        var now = LocalDateTime.now();
+        if (attempt.getStartTime() != null && now.isBefore(attempt.getStartTime())) {
+            throw new IllegalStateException("Attempt has not started yet");
+        }
+        if (attempt.getEndTime() != null && now.isAfter(attempt.getEndTime())) {
+            throw new IllegalStateException("Attempt has already ended");
+        }
+
+        if (answerDTO.getMockQuestionId() == null) {
+            throw new IllegalArgumentException("mockQuestionId is required");
+        }
+
+        MockQuestion question = mockQuestionRepository.findById(answerDTO.getMockQuestionId())
+                .orElseThrow(() -> new IllegalArgumentException("MockQuestion not found: " + answerDTO.getMockQuestionId()));
+
+        // If an answer for this question in this attempt already exists, update it (idempotent)
+        MockAnswer entity = mockAnswerRepository
+                .findFirstByMockAttempt_IdAndMockQuestion_Id(attemptId, question.getId())
+                .orElse(new MockAnswer());
+        entity.setQuestionType(question.getQuestionType());
+        entity.setAnswerText(answerDTO.getAnswerText());
+        entity.setComments(null);
+        entity.setAnswerPoint(null); // will be graded after end time
+        entity.setMockQuestion(question);
+        entity.setMockAttempt(attempt);
+
+        if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICES) {
+            if (answerDTO.getMockOptionId() == null) {
+                throw new IllegalArgumentException("mockOptionId is required for MULTIPLE_CHOICES");
+            }
+            MockOption option = mockOptionRepository.findById(answerDTO.getMockOptionId())
+                    .orElseThrow(() -> new IllegalArgumentException("MockOption not found: " + answerDTO.getMockOptionId()));
+            entity.setMockOption(option);
+        } else {
+            // ESSAY: ignore option
+            entity.setMockOption(null);
+        }
+
+        MockAnswer saved = mockAnswerRepository.save(entity);
+
+        // Attach to attempt answers list (optional if using owning side)
+//        if (attempt.getMockAnswers() != null) {
+//            attempt.getMockAnswers().add(saved);
+//        }
+
+        return toAnswerDTO(saved);
+    }
+
+    @Override
+    public MockAttemptDTO finalizeAndGrade(Long attemptId) {
+        MockAttempt attempt = mockAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + attemptId));
+
+        ensureOwnership(attempt);
+
+//        var now = LocalDateTime.now();
+//        if (attempt.getEndTime() != null && now.isBefore(attempt.getEndTime())) {
+//            throw new IllegalStateException("Attempt has not ended yet");
+//        }
+
+        var answers = attempt.getMockAnswers();
+        if (answers == null || answers.isEmpty()) {
+            System.out.println("No answers found for attempt ID: " + attemptId + ". Setting attempt points to 0.");
+            attempt.setAttemptPoint(0);
+            MockAttempt saved = mockAttemptRepository.save(attempt);
+            return toDTO(saved);
+        }
+
+        int total = 0;
+        for (MockAnswer a : answers) {
+            int pts = 0;
+            if (a.getQuestionType() == QuestionType.ESSAY) {
+                MockQuestion q = a.getMockQuestion();
+                String questionText = q != null ? q.getQuestion() : null;
+                String answerText = a.getAnswerText();
+                try {
+                    if (questionText != null && answerText != null && !answerText.isBlank()) {
+                        GradingApiResponse res = aiGradingClient.gradeFRQForLiteratureSubject(
+                                new QuestionAnswerRequest(questionText, answerText)
+                        );
+                        if (res != null && res.getData() != null && res.getData().getTotal() != null) {
+                            double total10 = res.getData().getTotal();
+                            int qPoint = q != null && q.getPoint() != null ? q.getPoint() : 0;
+                            pts = (int) Math.round((total10 / 10.0) * qPoint);
+                        }
+                    }
+                } catch (Exception e) {
+                    // keep pts = 0 on failure
+                }
+            } else if (a.getQuestionType() == QuestionType.MULTIPLE_CHOICES) {
+                System.out.println("Multiple choice question detected for answer ID: " + a.getId());
+                MockQuestion q = a.getMockQuestion();
+                if (q != null && q.getAnswer() != null && a.getMockOption() != null) {
+                    if (q.getAnswer().getId().equals(a.getMockOption().getId())) {
+                        pts = q.getPoint() != null ? q.getPoint() : 0;
+                    }
+                }
+            }
+            a.setAnswerPoint(pts);
+            total += pts;
+        }
+
+        mockAnswerRepository.saveAll(answers);
+
+        attempt.setAttemptPoint(total);
+        attempt.setStatus(AttemptStatus.FINISHED);
+        MockAttempt savedAttempt = mockAttemptRepository.save(attempt);
+        return toDTO(savedAttempt);
+    }
+
+    @Override
+    public MockAttemptDTO startAttempt(Long testId) {
+        Long currentUserId = getCurrentUserId();
+        MockTest test = mockTestRepository.findById(testId)
+                .orElseThrow(() -> new IllegalArgumentException("MockTest not found: " + testId));
+
+        var existing = mockAttemptRepository
+                .findFirstByUserSubscriptionIdAndMockTest_IdAndStatus(currentUserId, testId,
+                        AttemptStatus.IN_PROGRESS);
+        if (existing.isPresent()) {
+            throw new IllegalStateException("An attempt is already in progress for this test");
+        }
+
+        var now = java.time.LocalDateTime.now();
+        var duration = test.getDuration();
+
+        MockAttempt entity = MockAttempt.builder()
+                .userId(currentUserId)
+                .userSubscriptionId(0L)
+                .attemptPoint(0)
+                .duration(duration)
+                .startTime(now)
+                .endTime(duration != null ? now.plus(duration) : null)
+                .mockTest(test)
+                .status(AttemptStatus.IN_PROGRESS)
+                .build();
+
+        MockAttempt saved = mockAttemptRepository.save(entity);
+        return toDTO(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MockAttemptDTO getMyAttemptById(Long id) {
+        MockAttempt attempt = mockAttemptRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + id));
+        ensureOwnership(attempt);
+        return toDTO(attempt);
+    }
+
+    private void ensureOwnership(MockAttempt attempt) {
+        Long currentUserId = getCurrentUserId();
+        if (attempt.getUserId() == null || !attempt.getUserId().equals(currentUserId)) {
+            throw new AccessDeniedException("You do not own this attempt");
+        }
+    }
+
+    private Long getCurrentUserId() {
+        AccountDTO account = accountServiceClient.getByUsername();
+        if (account == null || account.getUserId() == null) {
+            throw new BadCredentialsException("User not found in account service");
+        }
+        return account.getUserId();
+    }
+
     private void apply(MockAttemptDTO dto, MockAttempt entity) {
         entity.setUserSubscriptionId(dto.getUserSubscriptionId());
         entity.setAttemptPoint(dto.getAttemptPoint());
+        entity.setDuration(dto.getDuration());
         entity.setStartTime(dto.getStartTime());
         entity.setEndTime(dto.getEndTime());
+        entity.setStatus(dto.getStatus());
+
+        if (dto.getMockTestId() != null) {
+            MockTest mt = mockTestRepository.findById(dto.getMockTestId())
+                    .orElseThrow(() -> new IllegalArgumentException("MockTest not found: " + dto.getMockTestId()));
+            entity.setMockTest(mt);
+        }
 
         if (dto.getMockAnswers() != null) {
             List<Long> answerIds = dto.getMockAnswers().stream()
@@ -82,10 +290,14 @@ public class MockAttemptServiceImpl implements MockAttemptService {
 
         return MockAttemptDTO.builder()
                 .id(entity.getId())
+                .userId(entity.getUserId())
                 .userSubscriptionId(entity.getUserSubscriptionId())
                 .attemptPoint(entity.getAttemptPoint())
+                .duration(entity.getDuration())
                 .startTime(entity.getStartTime())
                 .endTime(entity.getEndTime())
+                .mockTestId(entity.getMockTest() != null ? entity.getMockTest().getId() : null)
+                .status(entity.getStatus())
                 .mockAnswers(answerDTOs)
                 .createdDate(entity.getCreatedDate())
                 .updatedDate(entity.getUpdatedDate())
@@ -95,7 +307,6 @@ public class MockAttemptServiceImpl implements MockAttemptService {
     private MockAnswerDTO toAnswerDTO(MockAnswer a) {
         return MockAnswerDTO.builder()
                 .id(a.getId())
-                .accountId(a.getAccountId())
                 .answerPoint(a.getAnswerPoint())
                 .questionType(a.getQuestionType())
                 .mockOptionId(a.getMockOption() != null ? a.getMockOption().getId() : null)

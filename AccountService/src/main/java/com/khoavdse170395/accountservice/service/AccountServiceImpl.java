@@ -82,4 +82,9 @@ public class AccountServiceImpl implements AccountService {
             return accountRepository.save(account);
         }
     }
+
+    @Override
+    public Optional<Account> getByUsername(String username) {
+        return Optional.ofNullable(accountRepository.findByUsername(username));
+    }
 }

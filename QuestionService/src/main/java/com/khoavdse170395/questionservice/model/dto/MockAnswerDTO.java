@@ -17,6 +17,7 @@ public class MockAnswerDTO {
     private Long accountId;
     private Integer answerPoint;
     private QuestionType questionType;
+    private String answerText;
     private Long mockOptionId;
     private Long mockQuestionId;
     private Long mockAttemptId;

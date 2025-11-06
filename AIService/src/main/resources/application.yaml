@@ -4,7 +4,7 @@ server:
 spring:
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY}
+      api-key: AIzaSyCwTlV4VQ8kB2J_qlFVhExtfz5gedfo5KQ
       base-url: https://generativelanguage.googleapis.com/v1beta/openai/
       chat:
         options:
