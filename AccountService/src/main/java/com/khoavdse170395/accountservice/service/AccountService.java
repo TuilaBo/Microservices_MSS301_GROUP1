@@ -17,6 +17,9 @@ public interface AccountService {
     Account updateAccount(long id,Account account);
     Account getCurrentAccount();
     AccountResponseDTO getCurrentAccountDTO();
+    Account getAccountByEmail(String email);
     void sendVerificationCode(String email);
     void verifyAccount(String email, String code);
+    void validateFptEmailForLogin(String usernameOrEmail);
+    Account processOAuth2Login(String email, String name);
 }

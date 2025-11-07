@@ -17,3 +17,4 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
     
     void deleteByAccount(Account account);
 }
+
