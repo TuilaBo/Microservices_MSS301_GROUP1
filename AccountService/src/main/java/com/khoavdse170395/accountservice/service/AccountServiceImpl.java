@@ -1,6 +1,7 @@
 package com.khoavdse170395.accountservice.service;
 
 import com.khoavdse170395.accountservice.model.Account;
+import com.khoavdse170395.accountservice.model.Gender;
 import com.khoavdse170395.accountservice.model.Role;
 import com.khoavdse170395.accountservice.model.VerificationCode;
 import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,12 @@ public class AccountServiceImpl implements AccountService {
         if (accountRepository.findByUsername(account.getUsername()) != null) {
             throw new RuntimeException("Username already exists!");
         }
+        
+        // Validate FPT email domain
+        if (!account.getEmail().toLowerCase().endsWith("@fpt.edu.vn")) {
+            throw new RuntimeException("Only @fpt.edu.vn email addresses are allowed for registration");
+        }
+        
         account.setPassword(passwordEncoder.encode(account.getPassword()));
         // Ensure role is set; default to USER if not provided
         if (account.getRole() == null) {
@@ -70,6 +78,8 @@ public class AccountServiceImpl implements AccountService {
         if (accountRepository.findByUsername(account.getUsername()) != null) {
             throw new RuntimeException("Username already exists!");
         }
+        
+        // Teacher can register with any email, no FPT domain restriction
         account.setPassword(passwordEncoder.encode(account.getPassword()));
         
         // Set specific role
@@ -136,6 +146,15 @@ public class AccountServiceImpl implements AccountService {
     public AccountResponseDTO getCurrentAccountDTO() {
         Account account = getCurrentAccount();
         return mapToResponseDTO(account);
+    }
+
+    @Override
+    public Account getAccountByEmail(String email) {
+        Account account = accountRepository.findByEmail(email);
+        if (account == null) {
+            throw new UsernameNotFoundException("Account not found for email: " + email);
+        }
+        return account;
     }
 
     private AccountResponseDTO mapToResponseDTO(Account account) {
@@ -216,5 +235,83 @@ public class AccountServiceImpl implements AccountService {
         Random random = new Random();
         int code = 100000 + random.nextInt(900000); // 6-digit code
         return String.valueOf(code);
+    }
+
+    @Override
+    public void validateFptEmailForLogin(String usernameOrEmail) {
+        Account account = null;
+        
+        // Find account by username or email
+        if (usernameOrEmail.contains("@")) {
+            account = accountRepository.findByEmail(usernameOrEmail);
+        } else {
+            account = accountRepository.findByUsername(usernameOrEmail);
+        }
+        
+        // If account found, check role - only USER role requires @fpt.edu.vn email
+        if (account != null) {
+            Role role = account.getRole();
+            if (role != null && "USER".equalsIgnoreCase(role.getRoleName())) {
+                // USER role must have @fpt.edu.vn email
+                String email = account.getEmail();
+                if (!email.toLowerCase().endsWith("@fpt.edu.vn")) {
+                    throw new RuntimeException("User accounts must use @fpt.edu.vn email addresses for login");
+                }
+            }
+            // Teacher and other roles can use any email - no restriction
+        } else {
+            // If account not found yet (during registration check), validate email format
+            if (usernameOrEmail.contains("@")) {
+                // For new registrations, if it's USER role, require @fpt.edu.vn
+                // But this is handled in addAccount method, so we can skip here
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public Account processOAuth2Login(String email, String name) {
+        // Find existing account by email
+        Account account = accountRepository.findByEmail(email);
+        
+        if (account == null) {
+            // Create new account for OAuth2 user
+            // Generate username from email (before @)
+            String username = email.substring(0, email.indexOf("@"));
+            
+            // Check if username already exists, if yes, append random number
+            String originalUsername = username;
+            int counter = 1;
+            while (accountRepository.findByUsername(username) != null) {
+                username = originalUsername + counter;
+                counter++;
+            }
+            
+            // Get default USER role
+            Role userRole = roleRepository.findByRoleName("USER")
+                    .orElseThrow(() -> new IllegalStateException("Default role USER is missing"));
+            
+            // Create account - active immediately since Google verified the email
+            account = Account.builder()
+                    .username(username)
+                    .email(email)
+                    .fullName(name != null ? name : username)
+                    .password(passwordEncoder.encode("OAUTH2_" + System.currentTimeMillis())) // Random password for OAuth2 users
+                    .role(userRole)
+                    .active(true) // Active immediately, Google already verified email
+                    .gender(Gender.OTHER) // Default gender
+                    .birthday(LocalDate.of(1990, 1, 1)) // Default birthday
+                    .build();
+            
+            account = accountRepository.save(account);
+        } else {
+            // Account exists, ensure it's active
+            if (!account.isActive()) {
+                account.setActive(true);
+                accountRepository.save(account);
+            }
+        }
+        
+        return account;
     }
 }

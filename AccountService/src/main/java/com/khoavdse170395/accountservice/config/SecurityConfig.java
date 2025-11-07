@@ -1,6 +1,11 @@
 package com.khoavdse170395.accountservice.config;
 
+import com.khoavdse170395.accountservice.model.Account;
+import com.khoavdse170395.accountservice.model.Role;
+import com.khoavdse170395.accountservice.service.AccountService;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,8 +32,14 @@ import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
-    // thêm vào SecurityConfig
+    
+    private final AccountService accountService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -61,7 +72,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(oauth2UserService()))
-                        .defaultSuccessUrl("/api/auth/success", true)
+                        .successHandler(oAuth2SuccessHandler)
                 );
 
         return http.build();
@@ -75,11 +86,21 @@ public class SecurityConfig {
             OAuth2User user = delegate.loadUser(userRequest);
             Set<GrantedAuthority> authorities = new HashSet<>();
 
-            // Get email from Google user info
+            // Get email and name from Google user info
             String email = user.getAttribute("email");
+            String name = user.getAttribute("name");
+            
             if (email != null) {
-                // Add USER role for all authenticated users
-                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                // Process OAuth2 login - create or get account
+                Account account = accountService.processOAuth2Login(email, name);
+                
+                // Get role from account
+                Role role = account.getRole();
+                if (role != null) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName().toUpperCase()));
+                } else {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                }
 
                 // Add ADMIN role for @fpt.edu.vn domain
                 if (email.endsWith("@fpt.edu.vn")) {
