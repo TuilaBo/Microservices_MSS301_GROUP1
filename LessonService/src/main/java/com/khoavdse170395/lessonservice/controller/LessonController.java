@@ -24,6 +24,21 @@ public class LessonController {
 
     private final LessonService lessonService;
 
+    // Public endpoint for testing (no JWT required)
+    @GetMapping("/public/health")
+    @Operation(summary = "Health check", description = "Endpoint công khai để kiểm tra service")
+    public ResponseEntity<ApiResponse<String>> healthCheck() {
+        return ResponseEntity.ok(ApiResponse.success("LessonService is running!", "OK"));
+    }
+
+    // Public endpoint to get all lessons without authentication for testing
+    @GetMapping("/public/all")
+    @Operation(summary = "Lấy tất cả bài học (public)", description = "Endpoint công khai để test")
+    public ResponseEntity<ApiResponse<List<Lesson>>> getAllLessonsPublic() {
+        List<Lesson> lessons = lessonService.getAllLessons();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách bài học thành công", lessons));
+    }
+
     @GetMapping
     @Operation(summary = "Lấy tất cả bài học", description = "Trả về danh sách tất cả các bài học trong hệ thống")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Lấy danh sách bài học thành công")

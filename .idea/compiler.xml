@@ -10,7 +10,17 @@
         <module name="ApiGateway" />
         <module name="PaymentService" />
       </profile>
-      <profile name="Annotation profile for AccountService" enabled="true">
+      <profile name="Annotation profile for LessonService" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
+        </processorPath>
+        <module name="LessonService" />
+        <module name="DocumentService" />
+      </profile>
+      <profile name="Annotation profile for QuestionService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -18,9 +28,8 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
-        <module name="AccountService" />
         <module name="QuestionService" />
-        <module name="LessonService" />
+        <module name="AccountService" />
         <module name="AIService" />
       </profile>
     </annotationProcessing>
@@ -34,6 +43,7 @@
       <module name="AIService" options="-parameters" />
       <module name="AccountService" options="-parameters" />
       <module name="ApiGateway" options="-parameters" />
+      <module name="DocumentService" options="-parameters" />
       <module name="LessonService" options="-parameters" />
       <module name="PaymentService" options="-parameters" />
       <module name="QuestionService" options="-parameters" />
