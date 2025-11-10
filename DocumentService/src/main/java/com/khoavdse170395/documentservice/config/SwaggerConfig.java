@@ -1,4 +1,4 @@
-package com.khoavdse170395.lessonservice.config;
+package com.khoavdse170395.documentservice.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -15,9 +15,9 @@ public class SwaggerConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Lesson Service API")
+                        .title("Document Service API")
                         .version("1.0")
-                        .description("API quản lý giáo án Ngữ văn"))
+                        .description("API quản lý tài liệu học tập"))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
                 .components(new Components()
                         .addSecuritySchemes("Bearer Authentication",

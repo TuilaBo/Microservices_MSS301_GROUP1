@@ -1,34 +1,48 @@
 package com.khoavdse170395.lessonservice.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Schema(description = "Định dạng phản hồi chuẩn cho API")
 public class ApiResponse<T> {
-
-    @Schema(description = "Thông báo kết quả", example = "Lấy dữ liệu thành công")
     private String message;
-
-
-
-    @Schema(description = "Dữ liệu trả về")
     private T data;
+    private boolean success;
 
-    // Static methods để tạo response dễ dàng
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(message, data);
+    public ApiResponse() {}
+
+    public ApiResponse(String message, T data, boolean success) {
+        this.message = message;
+        this.data = data;
+        this.success = success;
     }
 
-    public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>("Thành công", data);
+    public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(message, data, true);
     }
 
     public static <T> ApiResponse<T> error(String message) {
-        return new ApiResponse<>(message, null);
+        return new ApiResponse<>(message, null, false);
+    }
+
+    // Getters and Setters
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
     }
 }
