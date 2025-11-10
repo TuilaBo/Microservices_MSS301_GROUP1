@@ -1,8 +1,11 @@
 package com.khoavdse170395.questionservice.service.impl;
 
 import com.khoavdse170395.questionservice.model.*;
-import com.khoavdse170395.questionservice.model.dto.MockAnswerDTO;
-import com.khoavdse170395.questionservice.model.dto.MockAttemptDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockAnswerRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockAttemptRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAnswerResponseDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAnswerSubmissionResultDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAttemptResponseDTO;
 import com.khoavdse170395.questionservice.repository.MockAnswerRepository;
 import com.khoavdse170395.questionservice.repository.MockAttemptRepository;
 import com.khoavdse170395.questionservice.repository.MockQuestionRepository;
@@ -22,9 +25,12 @@ import com.khoavdse170395.questionservice.client.dto.AccountDTO;
 import com.khoavdse170395.questionservice.client.AIGradingClient;
 import com.khoavdse170395.questionservice.client.dto.ai.GradingApiResponse;
 import com.khoavdse170395.questionservice.client.dto.ai.QuestionAnswerRequest;
+import com.khoavdse170395.questionservice.client.payment.PaymentServiceClient;
+import com.khoavdse170395.questionservice.client.payment.dto.MembershipDTO;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,9 +47,10 @@ public class MockAttemptServiceImpl implements MockAttemptService {
     private final MockTestRepository mockTestRepository;
     private final AccountServiceClient accountServiceClient;
     private final AIGradingClient aiGradingClient;
+    private final PaymentServiceClient paymentServiceClient;
 
     @Override
-    public MockAttemptDTO create(MockAttemptDTO dto) {
+    public MockAttemptResponseDTO create(MockAttemptRequestDTO dto) {
         MockAttempt entity = new MockAttempt();
         apply(dto, entity);
         MockAttempt saved;
@@ -53,16 +60,16 @@ public class MockAttemptServiceImpl implements MockAttemptService {
             // In case of race condition with DB unique/partial unique index
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Attempt already in progress", ex);
         }
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
-    public MockAttemptDTO update(Long id, MockAttemptDTO dto) {
+    public MockAttemptResponseDTO update(Long id, MockAttemptRequestDTO dto) {
         MockAttempt entity = mockAttemptRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + id));
         apply(dto, entity);
         MockAttempt saved = mockAttemptRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
@@ -72,26 +79,30 @@ public class MockAttemptServiceImpl implements MockAttemptService {
 
     @Override
     @Transactional(readOnly = true)
-    public MockAttemptDTO getById(Long id) {
-        return mockAttemptRepository.findById(id).map(this::toDTO)
+    public MockAttemptResponseDTO getById(Long id) {
+        return mockAttemptRepository.findById(id).map(this::toResponse)
                 .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MockAttemptDTO> getAll() {
-        return mockAttemptRepository.findAll().stream().map(this::toDTO).toList();
+    public List<MockAttemptResponseDTO> getAll() {
+        return mockAttemptRepository.findAll().stream().map(this::toResponse).toList();
     }
 
     @Override
-    public MockAnswerDTO addAnswer(Long attemptId, MockAnswerDTO answerDTO) {
+    public MockAnswerSubmissionResultDTO addAnswer(Long attemptId, MockAnswerRequestDTO answerDTO) {
         MockAttempt attempt = mockAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + attemptId));
 
         ensureOwnership(attempt);
 
         if (attempt.getStatus() == AttemptStatus.FINISHED) {
-            throw new IllegalStateException("Attempt already finished");
+            return MockAnswerSubmissionResultDTO.builder()
+                    .finalized(true)
+                    .finalizedAttempt(toResponse(attempt))
+                    .message("Attempt already finished.")
+                    .build();
         }
 
         var now = LocalDateTime.now();
@@ -99,7 +110,12 @@ public class MockAttemptServiceImpl implements MockAttemptService {
             throw new IllegalStateException("Attempt has not started yet");
         }
         if (attempt.getEndTime() != null && now.isAfter(attempt.getEndTime())) {
-            throw new IllegalStateException("Attempt has already ended");
+            MockAttempt finalized = finalizeAttemptInternal(attempt);
+            return MockAnswerSubmissionResultDTO.builder()
+                    .finalized(true)
+                    .finalizedAttempt(toResponse(finalized))
+                    .message("Attempt duration elapsed. Returning graded result.")
+                    .build();
         }
 
         if (answerDTO.getMockQuestionId() == null) {
@@ -139,90 +155,62 @@ public class MockAttemptServiceImpl implements MockAttemptService {
 //            attempt.getMockAnswers().add(saved);
 //        }
 
-        return toAnswerDTO(saved);
+        return MockAnswerSubmissionResultDTO.builder()
+                .answer(toAnswerResponse(saved))
+                .finalized(false)
+                .build();
     }
 
     @Override
-    public MockAttemptDTO finalizeAndGrade(Long attemptId) {
+    public MockAttemptResponseDTO finalizeAndGrade(Long attemptId) {
         MockAttempt attempt = mockAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + attemptId));
 
         ensureOwnership(attempt);
-
-//        var now = LocalDateTime.now();
-//        if (attempt.getEndTime() != null && now.isBefore(attempt.getEndTime())) {
-//            throw new IllegalStateException("Attempt has not ended yet");
-//        }
-
-        var answers = attempt.getMockAnswers();
-        if (answers == null || answers.isEmpty()) {
-            System.out.println("No answers found for attempt ID: " + attemptId + ". Setting attempt points to 0.");
-            attempt.setAttemptPoint(0);
-            MockAttempt saved = mockAttemptRepository.save(attempt);
-            return toDTO(saved);
-        }
-
-        int total = 0;
-        for (MockAnswer a : answers) {
-            int pts = 0;
-            if (a.getQuestionType() == QuestionType.ESSAY) {
-                MockQuestion q = a.getMockQuestion();
-                String questionText = q != null ? q.getQuestion() : null;
-                String answerText = a.getAnswerText();
-                try {
-                    if (questionText != null && answerText != null && !answerText.isBlank()) {
-                        GradingApiResponse res = aiGradingClient.gradeFRQForLiteratureSubject(
-                                new QuestionAnswerRequest(questionText, answerText)
-                        );
-                        if (res != null && res.getData() != null && res.getData().getTotal() != null) {
-                            double total10 = res.getData().getTotal();
-                            int qPoint = q != null && q.getPoint() != null ? q.getPoint() : 0;
-                            pts = (int) Math.round((total10 / 10.0) * qPoint);
-                        }
-                    }
-                } catch (Exception e) {
-                    // keep pts = 0 on failure
-                }
-            } else if (a.getQuestionType() == QuestionType.MULTIPLE_CHOICES) {
-                System.out.println("Multiple choice question detected for answer ID: " + a.getId());
-                MockQuestion q = a.getMockQuestion();
-                if (q != null && q.getAnswer() != null && a.getMockOption() != null) {
-                    if (q.getAnswer().getId().equals(a.getMockOption().getId())) {
-                        pts = q.getPoint() != null ? q.getPoint() : 0;
-                    }
-                }
-            }
-            a.setAnswerPoint(pts);
-            total += pts;
-        }
-
-        mockAnswerRepository.saveAll(answers);
-
-        attempt.setAttemptPoint(total);
-        attempt.setStatus(AttemptStatus.FINISHED);
-        MockAttempt savedAttempt = mockAttemptRepository.save(attempt);
-        return toDTO(savedAttempt);
+        MockAttempt savedAttempt = finalizeAttemptInternal(attempt);
+        return toResponse(savedAttempt);
     }
 
     @Override
-    public MockAttemptDTO startAttempt(Long testId) {
+    public int finalizeExpiredAttempts() {
+        var now = LocalDateTime.now();
+        List<MockAttempt> expired = mockAttemptRepository
+                .findByStatusAndEndTimeBefore(AttemptStatus.IN_PROGRESS, now);
+        int processed = 0;
+        for (MockAttempt attempt : expired) {
+            finalizeAttemptInternal(attempt);
+            processed++;
+        }
+        return processed;
+    }
+
+    @Override
+    public MockAttemptResponseDTO startAttempt(Long testId) {
         Long currentUserId = getCurrentUserId();
         MockTest test = mockTestRepository.findById(testId)
                 .orElseThrow(() -> new IllegalArgumentException("MockTest not found: " + testId));
 
+        var now = LocalDateTime.now();
         var existing = mockAttemptRepository
-                .findFirstByUserSubscriptionIdAndMockTest_IdAndStatus(currentUserId, testId,
-                        AttemptStatus.IN_PROGRESS);
+                .findFirstByUserIdAndMockTest_IdAndStatus(currentUserId, testId, AttemptStatus.IN_PROGRESS);
+
         if (existing.isPresent()) {
-            throw new IllegalStateException("An attempt is already in progress for this test");
+            MockAttempt existingAttempt = existing.get();
+            LocalDateTime endTime = existingAttempt.getEndTime();
+            if (endTime == null || now.isBefore(endTime)) {
+                return toResponse(existingAttempt);
+            }
+            finalizeAttemptInternal(existingAttempt);
         }
 
-        var now = java.time.LocalDateTime.now();
+        MembershipTier requiredTier = test.getRequiredTier() != null ? test.getRequiredTier() : MembershipTier.BASIC;
+        MembershipDTO membership = ensureEligibleMembership(currentUserId, requiredTier);
+
         var duration = test.getDuration();
 
         MockAttempt entity = MockAttempt.builder()
                 .userId(currentUserId)
-                .userSubscriptionId(0L)
+                .userSubscriptionId(membership != null ? membership.getId() : null)
                 .attemptPoint(0)
                 .duration(duration)
                 .startTime(now)
@@ -232,16 +220,25 @@ public class MockAttemptServiceImpl implements MockAttemptService {
                 .build();
 
         MockAttempt saved = mockAttemptRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public MockAttemptDTO getMyAttemptById(Long id) {
+    public MockAttemptResponseDTO getMyAttemptById(Long id) {
         MockAttempt attempt = mockAttemptRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("MockAttempt not found: " + id));
         ensureOwnership(attempt);
-        return toDTO(attempt);
+        return toResponse(attempt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MockAttemptResponseDTO> getMyAttempts() {
+        Long currentUserId = getCurrentUserId();
+        return mockAttemptRepository.findByUserId(currentUserId).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private void ensureOwnership(MockAttempt attempt) {
@@ -252,14 +249,102 @@ public class MockAttemptServiceImpl implements MockAttemptService {
     }
 
     private Long getCurrentUserId() {
-        AccountDTO account = accountServiceClient.getByUsername();
+        AccountDTO account = accountServiceClient.getMe();
         if (account == null || account.getUserId() == null) {
             throw new BadCredentialsException("User not found in account service");
         }
         return account.getUserId();
     }
 
-    private void apply(MockAttemptDTO dto, MockAttempt entity) {
+    private MembershipDTO ensureEligibleMembership(Long userId, MembershipTier requiredTier) {
+        try {
+            List<MembershipDTO> memberships = paymentServiceClient.getMembershipsByUserId(userId);
+            if (memberships == null || memberships.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Membership is required to start this test.");
+            }
+
+            MembershipDTO membership = memberships.stream()
+                    .filter(Objects::nonNull)
+                    .filter(m -> m.getStatus() == MembershipStatus.ACTIVE)
+                    .max(Comparator.comparingInt(m -> m.getTier() != null ? m.getTier().getRank() : Integer.MIN_VALUE))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Membership is not active."));
+
+            MembershipTier userTier = membership.getTier();
+            if (userTier == null || !userTier.isAtLeast(requiredTier)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Membership tier does not meet test requirement.");
+            }
+
+            return membership;
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Unable to verify membership at this time.", ex);
+        }
+    }
+
+    private MockAttempt finalizeAttemptInternal(MockAttempt attempt) {
+        if (attempt.getStatus() == AttemptStatus.FINISHED) {
+            return attempt;
+        }
+
+        List<MockAnswer> answers = attempt.getMockAnswers();
+        if (answers == null || answers.isEmpty()) {
+            attempt.setAttemptPoint(0);
+            attempt.setStatus(AttemptStatus.FINISHED);
+            return mockAttemptRepository.save(attempt);
+        }
+
+        int total = 0;
+        for (MockAnswer answer : answers) {
+            int pts = calculatePoints(answer);
+            answer.setAnswerPoint(pts);
+            total += pts;
+        }
+
+        mockAnswerRepository.saveAll(answers);
+        attempt.setAttemptPoint(total);
+        attempt.setStatus(AttemptStatus.FINISHED);
+        return mockAttemptRepository.save(attempt);
+    }
+
+    private int calculatePoints(MockAnswer answer) {
+        int pts = 0;
+        if (answer.getQuestionType() == QuestionType.ESSAY) {
+            MockQuestion q = answer.getMockQuestion();
+            String questionText = q != null ? q.getQuestion() : null;
+            String answerText = answer.getAnswerText();
+            try {
+                if (questionText != null && answerText != null && !answerText.isBlank()) {
+                    GradingApiResponse res = aiGradingClient.gradeFRQForLiteratureSubject(
+                            new QuestionAnswerRequest(questionText, answerText)
+                    );
+                    if (res != null && res.getData() != null) {
+                        if (res.getData().getFeedback() != null) {
+                            answer.setComments(res.getData().getFeedback());
+                        }
+                        if (res.getData().getTotal() != null) {
+                            double total10 = res.getData().getTotal();
+                            int qPoint = q != null && q.getPoint() != null ? q.getPoint() : 0;
+                            pts = (int) Math.round((total10 / 10.0) * qPoint);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+                // keep pts = 0 on failure to grade automatically
+            }
+        } else if (answer.getQuestionType() == QuestionType.MULTIPLE_CHOICES) {
+            MockQuestion q = answer.getMockQuestion();
+            if (q != null && q.getAnswer() != null && answer.getMockOption() != null) {
+                if (q.getAnswer().getId().equals(answer.getMockOption().getId())) {
+                    pts = q.getPoint() != null ? q.getPoint() : 0;
+                }
+            }
+        }
+        return pts;
+    }
+
+    private void apply(MockAttemptRequestDTO dto, MockAttempt entity) {
+        entity.setUserId(dto.getUserId());
         entity.setUserSubscriptionId(dto.getUserSubscriptionId());
         entity.setAttemptPoint(dto.getAttemptPoint());
         entity.setDuration(dto.getDuration());
@@ -273,9 +358,8 @@ public class MockAttemptServiceImpl implements MockAttemptService {
             entity.setMockTest(mt);
         }
 
-        if (dto.getMockAnswers() != null) {
-            List<Long> answerIds = dto.getMockAnswers().stream()
-                    .map(MockAnswerDTO::getId)
+        if (dto.getMockAnswerIds() != null) {
+            List<Long> answerIds = dto.getMockAnswerIds().stream()
                     .filter(Objects::nonNull)
                     .toList();
             List<MockAnswer> answers = answerIds.isEmpty() ? new ArrayList<>() : mockAnswerRepository.findAllById(answerIds);
@@ -283,16 +367,19 @@ public class MockAttemptServiceImpl implements MockAttemptService {
         }
     }
 
-    private MockAttemptDTO toDTO(MockAttempt entity) {
-        List<MockAnswerDTO> answerDTOs = Optional.ofNullable(entity.getMockAnswers())
-                .map(list -> list.stream().map(this::toAnswerDTO).toList())
+    private MockAttemptResponseDTO toResponse(MockAttempt entity) {
+        List<MockAnswerResponseDTO> answerDTOs = Optional.ofNullable(entity.getMockAnswers())
+                .map(list -> list.stream().map(this::toAnswerResponse).toList())
                 .orElse(List.of());
 
-        return MockAttemptDTO.builder()
+        Integer maxPoint = entity.getMockTest() != null ? entity.getMockTest().getTotalPoint() : null;
+
+        return MockAttemptResponseDTO.builder()
                 .id(entity.getId())
                 .userId(entity.getUserId())
                 .userSubscriptionId(entity.getUserSubscriptionId())
                 .attemptPoint(entity.getAttemptPoint())
+                .maxPoint(maxPoint)
                 .duration(entity.getDuration())
                 .startTime(entity.getStartTime())
                 .endTime(entity.getEndTime())
@@ -304,11 +391,15 @@ public class MockAttemptServiceImpl implements MockAttemptService {
                 .build();
     }
 
-    private MockAnswerDTO toAnswerDTO(MockAnswer a) {
-        return MockAnswerDTO.builder()
+    private MockAnswerResponseDTO toAnswerResponse(MockAnswer a) {
+        return MockAnswerResponseDTO.builder()
                 .id(a.getId())
+                .accountId(a.getMockAttempt() != null ? a.getMockAttempt().getUserId() : null)
                 .answerPoint(a.getAnswerPoint())
+                .maxPoint(a.getMockQuestion().getPoint())
                 .questionType(a.getQuestionType())
+                .answerText(a.getAnswerText())
+                .comments(a.getComments())
                 .mockOptionId(a.getMockOption() != null ? a.getMockOption().getId() : null)
                 .mockQuestionId(a.getMockQuestion() != null ? a.getMockQuestion().getId() : null)
                 .mockAttemptId(a.getMockAttempt() != null ? a.getMockAttempt().getId() : null)

@@ -3,8 +3,9 @@ package com.khoavdse170395.questionservice.service.impl;
 import com.khoavdse170395.questionservice.model.MockOption;
 import com.khoavdse170395.questionservice.model.MockQuestion;
 import com.khoavdse170395.questionservice.model.MockTest;
-import com.khoavdse170395.questionservice.model.dto.MockOptionDTO;
-import com.khoavdse170395.questionservice.model.dto.MockQuestionDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockQuestionRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockOptionResponseDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockQuestionResponseDTO;
 import com.khoavdse170395.questionservice.repository.MockOptionRepository;
 import com.khoavdse170395.questionservice.repository.MockQuestionRepository;
 import com.khoavdse170395.questionservice.repository.MockTestRepository;
@@ -28,20 +29,20 @@ public class MockQuestionServiceImpl implements MockQuestionService {
     private final MockOptionRepository mockOptionRepository;
 
     @Override
-    public MockQuestionDTO create(MockQuestionDTO dto) {
+    public MockQuestionResponseDTO create(MockQuestionRequestDTO dto) {
         MockQuestion entity = new MockQuestion();
         apply(dto, entity);
         MockQuestion saved = mockQuestionRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
-    public MockQuestionDTO update(Long id, MockQuestionDTO dto) {
+    public MockQuestionResponseDTO update(Long id, MockQuestionRequestDTO dto) {
         MockQuestion entity = mockQuestionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("MockQuestion not found: " + id));
         apply(dto, entity);
         MockQuestion saved = mockQuestionRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
@@ -51,18 +52,18 @@ public class MockQuestionServiceImpl implements MockQuestionService {
 
     @Override
     @Transactional(readOnly = true)
-    public MockQuestionDTO getById(Long id) {
-        return mockQuestionRepository.findById(id).map(this::toDTO)
+    public MockQuestionResponseDTO getById(Long id) {
+        return mockQuestionRepository.findById(id).map(this::toResponse)
                 .orElseThrow(() -> new IllegalArgumentException("MockQuestion not found: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MockQuestionDTO> getAll() {
-        return mockQuestionRepository.findAll().stream().map(this::toDTO).toList();
+    public List<MockQuestionResponseDTO> getAll() {
+        return mockQuestionRepository.findAll().stream().map(this::toResponse).toList();
     }
 
-    private void apply(MockQuestionDTO dto, MockQuestion entity) {
+    private void apply(MockQuestionRequestDTO dto, MockQuestion entity) {
         entity.setQuestion(dto.getQuestion());
         entity.setPoint(dto.getPoint());
         entity.setQuestionType(dto.getQuestionType());
@@ -75,9 +76,8 @@ public class MockQuestionServiceImpl implements MockQuestionService {
             entity.setTest(null);
         }
 
-        if (dto.getOptions() != null) {
-            List<Long> optionIds = dto.getOptions().stream()
-                    .map(MockOptionDTO::getId)
+        if (dto.getOptionIds() != null) {
+            List<Long> optionIds = dto.getOptionIds().stream()
                     .filter(Objects::nonNull)
                     .toList();
             List<MockOption> options = optionIds.isEmpty() ? new ArrayList<>() : mockOptionRepository.findAllById(optionIds);
@@ -93,12 +93,12 @@ public class MockQuestionServiceImpl implements MockQuestionService {
         }
     }
 
-    private MockQuestionDTO toDTO(MockQuestion entity) {
-        List<MockOptionDTO> optionDTOs = Optional.ofNullable(entity.getOptions())
-                .map(list -> list.stream().map(this::toOptionDTO).toList())
+    private MockQuestionResponseDTO toResponse(MockQuestion entity) {
+        List<MockOptionResponseDTO> optionDTOs = Optional.ofNullable(entity.getOptions())
+                .map(list -> list.stream().map(this::toOptionResponse).toList())
                 .orElse(List.of());
 
-        return MockQuestionDTO.builder()
+        return MockQuestionResponseDTO.builder()
                 .id(entity.getId())
                 .question(entity.getQuestion())
                 .point(entity.getPoint())
@@ -111,8 +111,8 @@ public class MockQuestionServiceImpl implements MockQuestionService {
                 .build();
     }
 
-    private MockOptionDTO toOptionDTO(MockOption o) {
-        return MockOptionDTO.builder()
+    private MockOptionResponseDTO toOptionResponse(MockOption o) {
+        return MockOptionResponseDTO.builder()
                 .id(o.getId())
                 .name(o.getName())
                 .answer(o.isAnswer())

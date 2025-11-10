@@ -1,26 +1,32 @@
 package com.khoavdse170395.questionservice.service;
 
-import com.khoavdse170395.questionservice.model.dto.MockAnswerDTO;
-import com.khoavdse170395.questionservice.model.dto.MockAttemptDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockAnswerRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockAttemptRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAnswerSubmissionResultDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAttemptResponseDTO;
 
 import java.util.List;
 
 public interface MockAttemptService {
-    MockAttemptDTO create(MockAttemptDTO dto);
-    MockAttemptDTO update(Long id, MockAttemptDTO dto);
+    MockAttemptResponseDTO create(MockAttemptRequestDTO dto);
+    MockAttemptResponseDTO update(Long id, MockAttemptRequestDTO dto);
     void delete(Long id);
-    MockAttemptDTO getById(Long id);
-    List<MockAttemptDTO> getAll();
+    MockAttemptResponseDTO getById(Long id);
+    List<MockAttemptResponseDTO> getAll();
 
     // Add answer to an attempt within time window
-    MockAnswerDTO addAnswer(Long attemptId, com.khoavdse170395.questionservice.model.dto.MockAnswerDTO answerDTO);
+    MockAnswerSubmissionResultDTO addAnswer(Long attemptId, MockAnswerRequestDTO answerDTO);
 
     // Finalize attempt after end time and compute total points
-    MockAttemptDTO finalizeAndGrade(Long attemptId);
+    MockAttemptResponseDTO finalizeAndGrade(Long attemptId);
+    int finalizeExpiredAttempts();
 
     // Start an attempt for a given test and current user
-    MockAttemptDTO startAttempt(Long testId);
+    MockAttemptResponseDTO startAttempt(Long testId);
 
     // Get attempt by id for current user (ownership enforced)
-    MockAttemptDTO getMyAttemptById(Long id);
+    MockAttemptResponseDTO getMyAttemptById(Long id);
+
+    // Get all attempts for current user
+    List<MockAttemptResponseDTO> getMyAttempts();
 }

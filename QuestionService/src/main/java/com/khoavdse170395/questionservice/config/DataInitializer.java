@@ -3,6 +3,7 @@ package com.khoavdse170395.questionservice.config;
 import com.khoavdse170395.questionservice.model.MockOption;
 import com.khoavdse170395.questionservice.model.MockQuestion;
 import com.khoavdse170395.questionservice.model.MockTest;
+import com.khoavdse170395.questionservice.model.MembershipTier;
 import com.khoavdse170395.questionservice.model.QuestionType;
 import com.khoavdse170395.questionservice.repository.MockQuestionRepository;
 import com.khoavdse170395.questionservice.repository.MockTestRepository;
@@ -32,8 +33,8 @@ public class DataInitializer implements CommandLineRunner {
             test.setName("Sample Test " + t);
             test.setDuration(Duration.ofMinutes(30));
             test.setTotalPoint(30);
-            test.setLessonPlanId(null);
-            test.setSubscriptionPackageIds(List.of());
+            test.setLessonId(null);
+            test.setRequiredTier(MembershipTier.BASIC);
 
             // Persist test first to obtain ID
             test = mockTestRepository.save(test);
@@ -70,4 +71,3 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 }
-

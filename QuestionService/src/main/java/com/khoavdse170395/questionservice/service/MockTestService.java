@@ -1,14 +1,15 @@
 package com.khoavdse170395.questionservice.service;
 
-import com.khoavdse170395.questionservice.model.dto.MockTestDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockTestRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockTestResponseDTO;
 
 import java.util.List;
 
 public interface MockTestService {
-    MockTestDTO create(MockTestDTO dto);
-    MockTestDTO update(Long id, MockTestDTO dto);
+    MockTestResponseDTO create(MockTestRequestDTO dto);
+    MockTestResponseDTO update(Long id, MockTestRequestDTO dto);
     void delete(Long id);
-    MockTestDTO getById(Long id);
-    List<MockTestDTO> getAll();
+    MockTestResponseDTO getById(Long id);
+    List<MockTestResponseDTO> getAll();
+    List<MockTestResponseDTO> getByLessonId(String lessonId);
 }
-

@@ -21,3 +21,7 @@ spring:
               uri: http://localhost:8082
               predicates:
                 - Path=${app.api-prefix}/payments/**
+            - id: question_service
+              uri: http://localhost:8084
+              predicates:
+                - Path=${app.api-prefix}/payments/**

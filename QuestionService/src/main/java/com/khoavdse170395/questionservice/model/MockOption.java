@@ -26,7 +26,7 @@ public class MockOption {
     private boolean isAnswer;
 
     @ManyToOne
-    @JoinColumn(referencedColumnName = "id")
+    @JoinColumn(name = "question_id", referencedColumnName = "id")
     private MockQuestion question;
 
     @CreationTimestamp

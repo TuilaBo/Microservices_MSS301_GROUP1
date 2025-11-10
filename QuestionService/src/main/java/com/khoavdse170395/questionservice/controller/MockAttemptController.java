@@ -1,12 +1,15 @@
 package com.khoavdse170395.questionservice.controller;
 
-import com.khoavdse170395.questionservice.model.dto.MockAttemptDTO;
-import com.khoavdse170395.questionservice.model.dto.MockAnswerDTO;
+import com.khoavdse170395.questionservice.model.dto.request.MockAnswerRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAnswerResponseDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAnswerSubmissionResultDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockAttemptResponseDTO;
 import com.khoavdse170395.questionservice.service.MockAttemptService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -22,34 +25,27 @@ public class MockAttemptController {
 
     @GetMapping
     @Operation(summary = "List mock attempts", description = "Retrieve all mock attempts as DTOs.")
-    public ResponseEntity<List<MockAttemptDTO>> getAll() {
+    public ResponseEntity<List<MockAttemptResponseDTO>> getAll() {
         return ResponseEntity.ok(mockAttemptService.getAll());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get mock attempt by ID", description = "Retrieve a single mock attempt by its ID.")
-    public ResponseEntity<MockAttemptDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<MockAttemptResponseDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(mockAttemptService.getById(id));
     }
 
     @GetMapping("/{id}/me")
     @Operation(summary = "Get my mock attempt by ID", description = "Retrieve a mock attempt by its ID only if it belongs to the current authenticated user.")
-    public ResponseEntity<MockAttemptDTO> getMyAttemptById(@PathVariable Long id) {
+    public ResponseEntity<MockAttemptResponseDTO> getMyAttemptById(@PathVariable Long id) {
         return ResponseEntity.ok(mockAttemptService.getMyAttemptById(id));
     }
 
-//    @PostMapping
-//    @Operation(summary = "Create mock attempt", description = "Create a new mock attempt. Provide related entity IDs in the DTO.")
-//    public ResponseEntity<MockAttemptDTO> create(@RequestBody MockAttemptDTO dto) {
-//        MockAttemptDTO created = mockAttemptService.create(dto);
-//        return ResponseEntity.created(URI.create("/api/mock-attempts/" + created.getId())).body(created);
-//    }
-
-//    @PutMapping("/{id}")
-//    @Operation(summary = "Update mock attempt", description = "Update an existing mock attempt by ID.")
-//    public ResponseEntity<MockAttemptDTO> update(@PathVariable Long id, @RequestBody MockAttemptDTO dto) {
-//        return ResponseEntity.ok(mockAttemptService.update(id, dto));
-//    }
+    @GetMapping("/me")
+    @Operation(summary = "List my mock attempts", description = "Retrieve all mock attempts for the current authenticated user.")
+    public ResponseEntity<List<MockAttemptResponseDTO>> getMyAttempts() {
+        return ResponseEntity.ok(mockAttemptService.getMyAttempts());
+    }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete mock attempt", description = "Delete a mock attempt by ID.")
@@ -60,14 +56,20 @@ public class MockAttemptController {
 
     @PostMapping("/{id}/answers")
     @Operation(summary = "Add answer to attempt", description = "Add an answer to a mock attempt within its active time window.")
-    public ResponseEntity<MockAnswerDTO> addAnswer(@PathVariable Long id, @RequestBody MockAnswerDTO dto) {
-        MockAnswerDTO created = mockAttemptService.addAnswer(id, dto);
-        return ResponseEntity.created(URI.create("/api/mock-attempts/" + id + "/answers/" + created.getId())).body(created);
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<MockAnswerSubmissionResultDTO> addAnswer(@PathVariable Long id, @RequestBody MockAnswerRequestDTO dto) {
+        MockAnswerSubmissionResultDTO result = mockAttemptService.addAnswer(id, dto);
+        if (result.isFinalized()) {
+            return ResponseEntity.ok(result);
+        }
+        MockAnswerResponseDTO answer = result.getAnswer();
+        return ResponseEntity.created(URI.create("/api/mock-attempts/" + id + "/answers/" + (answer != null ? answer.getId() : ""))).body(result);
     }
 
     @PostMapping("/{id}/grade")
     @Operation(summary = "Finalize and grade attempt", description = "Finalize a mock attempt after its end time and compute total points.")
-    public ResponseEntity<MockAttemptDTO> finalizeAndGrade(@PathVariable Long id) {
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<MockAttemptResponseDTO> finalizeAndGrade(@PathVariable Long id) {
         return ResponseEntity.ok(mockAttemptService.finalizeAndGrade(id));
     }
 }

@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleConflict(DataIntegrityViolationException ex, HttpServletRequest req) {
         // Default to conflict; message tailored for active attempt
-        return build(HttpStatus.CONFLICT, "Attempt already in progress", req);
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
     @ExceptionHandler({IllegalArgumentException.class})

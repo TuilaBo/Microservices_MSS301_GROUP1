@@ -1,5 +1,6 @@
-package com.khoavdse170395.questionservice.model.dto;
+package com.khoavdse170395.questionservice.model.dto.request;
 
+import com.khoavdse170395.questionservice.model.AttemptStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,14 +9,16 @@ import lombok.NoArgsConstructor;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import com.khoavdse170395.questionservice.model.AttemptStatus;
 
+/**
+ * Request payload for creating or updating mock attempts.
+ * Relationship fields are represented as identifiers.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MockAttemptDTO {
-    private Long id;
+public class MockAttemptRequestDTO {
     private Long userId;
     private Long userSubscriptionId;
     private Integer attemptPoint;
@@ -24,7 +27,5 @@ public class MockAttemptDTO {
     private LocalDateTime endTime;
     private Long mockTestId;
     private AttemptStatus status;
-    private List<MockAnswerDTO> mockAnswers;
-    private LocalDateTime createdDate;
-    private LocalDateTime updatedDate;
+    private List<Long> mockAnswerIds;
 }
