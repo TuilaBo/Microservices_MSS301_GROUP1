@@ -15,3 +15,4 @@ public class VerifyRequest {
     @Pattern(regexp = "^[0-9]{6}$", message = "Verification code must be 6 digits")
     private String code;
 }
+

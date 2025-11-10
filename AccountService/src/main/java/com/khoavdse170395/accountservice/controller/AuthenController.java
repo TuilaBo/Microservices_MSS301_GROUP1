@@ -37,6 +37,9 @@ public class AuthenController {
     @PostMapping("/login")
     public ResponseEntity<JWTAuthResponse> authenticateUser(
             @RequestBody @Valid LoginDto loginDto) {
+        // Validate FPT email domain before authentication
+        accountService.validateFptEmailForLogin(loginDto.getUsernameOrEmail());
+        
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginDto.getUsernameOrEmail(),
@@ -92,9 +95,42 @@ public class AuthenController {
 
     @GetMapping("/success")
     public ResponseEntity<Map<String, Object>> success(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Authentication failed"));
+        }
+        
+        // Get email from OAuth2 user
+        String email = principal.getAttribute("email");
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Email not found in OAuth2 user"));
+        }
+        
+        // Get account from service by email
+        Account account = accountService.getAccountByEmail(email);
+        
+        // Create authentication for JWT token generation
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                email,
+                null,
+                principal.getAuthorities()
+        );
+        
+        // Generate JWT token
+        String token = tokenProvider.generateToken(authentication);
+        
+        // Return token and user info
         return ResponseEntity.ok(Map.of(
                 "authenticated", true,
-                "user", principal.getAttributes()
+                "token", token,
+                "user", Map.of(
+                        "userId", account.getUserId(),
+                        "username", account.getUsername(),
+                        "email", account.getEmail(),
+                        "fullName", account.getFullName(),
+                        "role", account.getRole().getRoleName()
+                )
         ));
     }
 
@@ -115,6 +151,14 @@ public class AuthenController {
     public ResponseEntity<String> resendVerificationCode(@RequestBody @Valid ResendCodeRequest request) {
         accountService.sendVerificationCode(request.getEmail());
         return new ResponseEntity<>("Verification code sent to your email!", HttpStatus.OK);
+    }
+
+    @GetMapping("/google")
+    public ResponseEntity<Map<String, String>> googleLogin() {
+        return ResponseEntity.ok(Map.of(
+                "message", "Redirect to /oauth2/authorization/google to start Google OAuth2 login",
+                "url", "/oauth2/authorization/google"
+        ));
     }
 
     @GetMapping("/ping")
