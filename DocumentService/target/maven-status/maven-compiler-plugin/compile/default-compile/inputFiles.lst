@@ -1,0 +1,13 @@
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\config\JwtFilter.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\config\MongoConfig.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\config\SecurityConfig.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\config\SwaggerConfig.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\controller\DocumentController.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\DocumentServiceApplication.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\dto\ApiResponse.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\dto\DocumentRequestDto.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\dto\DocumentResponseDto.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\entity\DocumentEntity.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\repository\DocumentRepository.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\service\DocumentService.java
+C:\Users\Asus\Documents\Microservices_MSS301_GROUP1\DocumentService\src\main\java\com\khoavdse170395\documentservice\service\impl\DocumentServiceImpl.java
