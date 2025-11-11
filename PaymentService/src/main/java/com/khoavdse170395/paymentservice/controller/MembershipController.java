@@ -5,8 +5,8 @@ import com.khoavdse170395.paymentservice.controller.dto.MembershipResponse;
 import com.khoavdse170395.paymentservice.controller.dto.UpdateMembershipRequest;
 import com.khoavdse170395.paymentservice.domain.OrderEntity;
 import com.khoavdse170395.paymentservice.repo.OrderRepo;
-import com.khoavdse170395.paymentservice.service.MembershipService;
-import com.khoavdse170395.paymentservice.service.PaymentService;
+import com.khoavdse170395.paymentservice.service.MembershipServiceImpl;
+import com.khoavdse170395.paymentservice.service.PaymentServiceImpl;
 import com.khoavdse170395.paymentservice.controller.dto.CreatePaymentRequest;
 import com.khoavdse170395.paymentservice.controller.dto.CreatePaymentResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,11 +23,11 @@ import java.util.Map;
 @RequestMapping("/api/memberships")
 public class MembershipController {
 
-    private final MembershipService membershipService;
+    private final MembershipServiceImpl membershipService;
     private final OrderRepo orderRepo;
-    private final PaymentService paymentService;
+    private final PaymentServiceImpl paymentService;
 
-    public MembershipController(MembershipService membershipService, OrderRepo orderRepo, PaymentService paymentService) {
+    public MembershipController(MembershipServiceImpl membershipService, OrderRepo orderRepo, PaymentServiceImpl paymentService) {
         this.membershipService = membershipService;
         this.orderRepo = orderRepo;
         this.paymentService = paymentService;
