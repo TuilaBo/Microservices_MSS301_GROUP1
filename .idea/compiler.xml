@@ -10,6 +10,18 @@
         <module name="ApiGateway" />
         <module name="PaymentService" />
       </profile>
+      <profile name="Annotation profile for AccountService" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
+        </processorPath>
+        <module name="AccountService" />
+        <module name="QuestionService" />
+        <module name="AIService" />
+      </profile>
       <profile name="Annotation profile for LessonService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -19,18 +31,6 @@
         </processorPath>
         <module name="LessonService" />
         <module name="DocumentService" />
-      </profile>
-      <profile name="Annotation profile for QuestionService" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
-        </processorPath>
-        <module name="QuestionService" />
-        <module name="AccountService" />
-        <module name="AIService" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
