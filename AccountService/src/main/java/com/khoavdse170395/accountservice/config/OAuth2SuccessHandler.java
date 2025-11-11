@@ -11,11 +11,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 
 @Component
 @Slf4j
@@ -40,40 +41,40 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         if (email != null) {
             try {
-                // Try to get account (should already be created in oauth2UserService)
-                Account account;
-                try {
-                    account = accountService.getAccountByEmail(email);
-                    log.info("Account retrieved: {}", account.getEmail());
-                } catch (Exception e) {
-                    // If account not found, create it
-                    log.warn("Account not found, creating new account for: {}", email);
-                    account = accountService.processOAuth2Login(email, name);
-                    log.info("Account created: {}", account.getEmail());
-                }
-                
-                // Get role from account
+                Account account = accountService.processOAuth2Login(email, name);
+                log.info("OAuth2 login account verified: {}", account.getEmail());
+
                 String roleName = account.getRole() != null ? account.getRole().getRoleName() : "USER";
-                
-                // Create authentication for JWT
+
+                ArrayList<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+                if (email.endsWith("@fpt.edu.vn")) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                }
+
                 Authentication jwtAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                         email,
                         null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + roleName))
+                        authorities
                 );
-                
-                // Generate JWT token
+
                 String token = tokenProvider.generateToken(jwtAuth);
                 log.info("JWT token generated successfully");
-                
-                // Redirect to frontend with token in URL
+
                 String redirectUrl = frontendUrl + "/#oauth-callback?token=" + token;
                 log.info("Redirecting to: {}", redirectUrl);
                 getRedirectStrategy().sendRedirect(request, response, redirectUrl);
-                
+
+            } catch (UsernameNotFoundException e) {
+                log.error("OAuth2 login failed - account not registered: {}", email);
+                String redirectUrl = frontendUrl + "/login?error=account_not_registered";
+                getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+            } catch (IllegalStateException e) {
+                log.error("OAuth2 login failed - account inactive: {}", email);
+                String redirectUrl = frontendUrl + "/login?error=account_inactive";
+                getRedirectStrategy().sendRedirect(request, response, redirectUrl);
             } catch (Exception e) {
                 log.error("OAuth2 login failed for email: {}", email, e);
-                // On error, redirect to login with error
                 String redirectUrl = frontendUrl + "/login?error=oauth_failed&message=" + e.getMessage();
                 getRedirectStrategy().sendRedirect(request, response, redirectUrl);
             }

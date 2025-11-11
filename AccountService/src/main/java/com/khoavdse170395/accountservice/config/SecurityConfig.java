@@ -19,8 +19,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -93,29 +96,39 @@ public class SecurityConfig {
             OAuth2User user = delegate.loadUser(userRequest);
             Set<GrantedAuthority> authorities = new HashSet<>();
 
-            // Get email and name from Google user info
             String email = user.getAttribute("email");
             String name = user.getAttribute("name");
-            
-            if (email != null) {
-                // Process OAuth2 login - create or get account
-                Account account = accountService.processOAuth2Login(email, name);
-                
-                // Get role from account
-                Role role = account.getRole();
-                if (role != null) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName().toUpperCase()));
-                } else {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                }
 
-                // Add ADMIN role for @fpt.edu.vn domain
-                if (email.endsWith("@fpt.edu.vn")) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-                }
+            if (!org.springframework.util.StringUtils.hasText(email)) {
+                throw new OAuth2AuthenticationException(new OAuth2Error("invalid_user_info", "Email not provided by OAuth provider", ""));
             }
 
-            // Create new OAuth2User with updated authorities
+            Account account;
+            try {
+                account = accountService.processOAuth2Login(email, name);
+            } catch (UsernameNotFoundException ex) {
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error("account_not_registered", "Account is not registered for Google login", ""),
+                        ex
+                );
+            } catch (IllegalStateException ex) {
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error("account_inactive", ex.getMessage(), ""),
+                        ex
+                );
+            }
+
+            Role role = account.getRole();
+            if (role != null) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName().toUpperCase()));
+            } else {
+                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+            }
+
+            if (email.endsWith("@fpt.edu.vn")) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            }
+
             return new DefaultOAuth2User(
                     authorities,
                     user.getAttributes(),

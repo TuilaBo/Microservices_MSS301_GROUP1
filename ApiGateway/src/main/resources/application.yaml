@@ -13,6 +13,23 @@ spring:
       server:
         webflux:
           routes:
+            # OAuth2 endpoints (must be before account_service to match first)
+            # Route for /api/auth/oauth2/** - rewrite to /oauth2/**
+            - id: oauth2_authorization_with_prefix
+              uri: http://localhost:8081
+              predicates:
+                - Path=${app.api-prefix}/auth/oauth2/**
+              filters:
+                - RewritePath=/api/auth/oauth2/(?<remaining>.*), /oauth2/$\{remaining}
+            - id: oauth2_authorization
+              uri: http://localhost:8081
+              predicates:
+                - Path=/oauth2/authorization/**
+            - id: oauth2_callback
+              uri: http://localhost:8081
+              predicates:
+                - Path=/login/oauth2/code/**
+            # Account service routes
             - id: account_service
               uri: http://localhost:8081
               predicates:
