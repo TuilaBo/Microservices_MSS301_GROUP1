@@ -51,6 +51,30 @@ public class PaymentController {
         return ResponseEntity.ok(resp);
     }
 
+    @PostMapping("/cancel/{txnRef}")
+    public ResponseEntity<Map<String, String>> cancelPayment(@PathVariable String txnRef) {
+        logger.info("Canceling payment with txnRef={}", txnRef);
+        try {
+            service.cancelPayment(txnRef);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Payment canceled successfully",
+                    "txnRef", txnRef
+            ));
+        } catch (IllegalStateException ex) {
+            logger.error("Cannot cancel payment: {}", ex.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", ex.getMessage()
+            ));
+        } catch (Exception ex) {
+            logger.error("Failed to cancel payment txnRef={}", txnRef, ex);
+            return ResponseEntity.status(500).body(Map.of(
+                    "status", "error",
+                    "message", "Failed to cancel payment: " + ex.getMessage()
+            ));
+        }
+    }
     // IPN (server-to-server)
     @PostMapping("/ipn")
     public ResponseEntity<String> ipn(HttpServletRequest request) {

@@ -4,8 +4,8 @@ import com.khoavdse170395.paymentservice.controller.dto.CreateMembershipRequest;
 import com.khoavdse170395.paymentservice.controller.dto.MembershipResponse;
 import com.khoavdse170395.paymentservice.controller.dto.UpdateMembershipRequest;
 import com.khoavdse170395.paymentservice.domain.OrderEntity;
-import com.khoavdse170395.paymentservice.repo.OrderRepo;
 import com.khoavdse170395.paymentservice.service.MembershipServiceImpl;
+import com.khoavdse170395.paymentservice.service.OrderServiceImpl;
 import com.khoavdse170395.paymentservice.service.PaymentServiceImpl;
 import com.khoavdse170395.paymentservice.controller.dto.CreatePaymentRequest;
 import com.khoavdse170395.paymentservice.controller.dto.CreatePaymentResponse;
@@ -24,12 +24,12 @@ import java.util.Map;
 public class MembershipController {
 
     private final MembershipServiceImpl membershipService;
-    private final OrderRepo orderRepo;
+    private final OrderServiceImpl orderService;
     private final PaymentServiceImpl paymentService;
 
-    public MembershipController(MembershipServiceImpl membershipService, OrderRepo orderRepo, PaymentServiceImpl paymentService) {
+    public MembershipController(MembershipServiceImpl membershipService, OrderServiceImpl orderService, PaymentServiceImpl paymentService) {
         this.membershipService = membershipService;
-        this.orderRepo = orderRepo;
+        this.orderService = orderService;
         this.paymentService = paymentService;
     }
 
@@ -46,17 +46,15 @@ public class MembershipController {
                 case PLATINUM -> 100_000L;
             };
 
-            // create order
+            // create order using OrderService
             OrderEntity order = new OrderEntity();
-            order.setUserId(req.getUserId().longValue());
+            order.setUserId(req.getUserId());
             order.setItemType("MEMBERSHIP");
-            // DB schema requires item_id NOT NULL; use 0 as sentinel for membership (no specific item id)
             order.setItemId(0);
             order.setTitle("Membership " + req.getTier().name());
             order.setAmountVnd(price);
             order.setStatus("PENDING");
-            order.setUserId(req.getUserId().longValue());
-            orderRepo.save(order);
+            OrderEntity savedOrder = orderService.create(order);
 
             // determine client IP
             String xff = http.getHeader("X-Forwarded-For");
@@ -70,7 +68,7 @@ public class MembershipController {
 
             // create checkout
             CreatePaymentRequest payReq = new CreatePaymentRequest();
-            payReq.setOrderId(order.getId());
+            payReq.setOrderId(savedOrder.getId());
             CreatePaymentResponse payResp = paymentService.createCheckout(payReq, ip);
 
             // create pending membership linked to txnRef
@@ -104,16 +102,15 @@ public class MembershipController {
             case PLATINUM -> 100_000L;
         };
 
-        // create order
+        // create order using OrderService
         OrderEntity order = new OrderEntity();
-        order.setUserId(req.getUserId().longValue());
+        order.setUserId(req.getUserId());
         order.setItemType("MEMBERSHIP");
-        // DB schema requires item_id NOT NULL; use 0 as sentinel for membership (no specific item id)
         order.setItemId(0);
         order.setTitle("Membership " + req.getTier().name());
         order.setAmountVnd(price);
         order.setStatus("CREATED");
-        orderRepo.save(order);
+        OrderEntity savedOrder = orderService.create(order);
 
         // determine client IP similar to PaymentController
         String xff = http.getHeader("X-Forwarded-For");
@@ -127,7 +124,7 @@ public class MembershipController {
 
         // create checkout
         CreatePaymentRequest payReq = new CreatePaymentRequest();
-        payReq.setOrderId(order.getId());
+        payReq.setOrderId(savedOrder.getId());
         CreatePaymentResponse payResp = paymentService.createCheckout(payReq, ip);
 
         // create pending membership linked to txnRef
