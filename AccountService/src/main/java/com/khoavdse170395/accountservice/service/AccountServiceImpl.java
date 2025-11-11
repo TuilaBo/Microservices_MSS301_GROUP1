@@ -1,7 +1,6 @@
 package com.khoavdse170395.accountservice.service;
 
 import com.khoavdse170395.accountservice.model.Account;
-import com.khoavdse170395.accountservice.model.Gender;
 import com.khoavdse170395.accountservice.model.Role;
 import com.khoavdse170395.accountservice.model.VerificationCode;
 import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
@@ -17,7 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -271,47 +269,16 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional
     public Account processOAuth2Login(String email, String name) {
-        // Find existing account by email
         Account account = accountRepository.findByEmail(email);
-        
+
         if (account == null) {
-            // Create new account for OAuth2 user
-            // Generate username from email (before @)
-            String username = email.substring(0, email.indexOf("@"));
-            
-            // Check if username already exists, if yes, append random number
-            String originalUsername = username;
-            int counter = 1;
-            while (accountRepository.findByUsername(username) != null) {
-                username = originalUsername + counter;
-                counter++;
-            }
-            
-            // Get default USER role
-            Role userRole = roleRepository.findByRoleName("USER")
-                    .orElseThrow(() -> new IllegalStateException("Default role USER is missing"));
-            
-            // Create account - active immediately since Google verified the email
-            account = Account.builder()
-                    .username(username)
-                    .email(email)
-                    .fullName(name != null ? name : username)
-                    .password(passwordEncoder.encode("OAUTH2_" + System.currentTimeMillis())) // Random password for OAuth2 users
-                    .role(userRole)
-                    .active(true) // Active immediately, Google already verified email
-                    .gender(Gender.OTHER) // Default gender
-                    .birthday(LocalDate.of(1990, 1, 1)) // Default birthday
-                    .build();
-            
-            account = accountRepository.save(account);
-        } else {
-            // Account exists, ensure it's active
-            if (!account.isActive()) {
-                account.setActive(true);
-                accountRepository.save(account);
-            }
+            throw new UsernameNotFoundException("Account not registered for email: " + email);
         }
-        
+
+        if (!account.isActive()) {
+            throw new IllegalStateException("Account is not active. Please verify your email before using Google login.");
+        }
+
         return account;
     }
 }
