@@ -1,7 +1,10 @@
 package com.khoavdse170395.questionservice.controller;
 
+import com.khoavdse170395.questionservice.model.dto.request.MockOptionRequestDTO;
 import com.khoavdse170395.questionservice.model.dto.request.MockQuestionRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockOptionResponseDTO;
 import com.khoavdse170395.questionservice.model.dto.response.MockQuestionResponseDTO;
+import com.khoavdse170395.questionservice.service.MockOptionService;
 import com.khoavdse170395.questionservice.service.MockQuestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,7 @@ import java.util.List;
 public class MockQuestionController {
 
     private final MockQuestionService mockQuestionService;
+    private final MockOptionService mockOptionService;
 
     @GetMapping
     @Operation(summary = "List mock questions", description = "Retrieve all mock questions as DTOs.")
@@ -54,6 +58,32 @@ public class MockQuestionController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         mockQuestionService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{questionId}/answers")
+    @Operation(summary = "List answers for a question", description = "Retrieve all answer options for the specified question.")
+    public ResponseEntity<List<MockOptionResponseDTO>> getAnswers(@PathVariable Long questionId) {
+        return ResponseEntity.ok(mockOptionService.getByQuestionId(questionId));
+    }
+
+    @PostMapping("/{questionId}/answers")
+    @Operation(summary = "Create answer for a question", description = "Add a new answer option to the specified question.")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<MockOptionResponseDTO> createAnswer(@PathVariable Long questionId,
+                                                              @RequestBody MockOptionRequestDTO dto) {
+        MockOptionResponseDTO created = mockOptionService.createForQuestion(questionId, dto);
+        return ResponseEntity
+                .created(URI.create("/api/mock-questions/" + questionId + "/answers/" + created.getId()))
+                .body(created);
+    }
+
+    @PutMapping("/{questionId}/answers/{answerId}")
+    @Operation(summary = "Update answer for a question", description = "Update an existing answer option for the specified question.")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<MockOptionResponseDTO> updateAnswer(@PathVariable Long questionId,
+                                                              @PathVariable Long answerId,
+                                                              @RequestBody MockOptionRequestDTO dto) {
+        return ResponseEntity.ok(mockOptionService.updateForQuestion(questionId, answerId, dto));
     }
 }
 
