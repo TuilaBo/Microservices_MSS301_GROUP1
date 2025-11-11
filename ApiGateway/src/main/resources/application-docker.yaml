@@ -1,0 +1,49 @@
+server:
+  port: 8888
+
+app:
+  api-prefix: /api
+  jwt-secret: 2f3d7c9a0b1e4f6a8c2d5e7f9b1c3d5e7f9a2b4c6d8e0f1a3b5c7d9e1f3a5b7
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: oauth2_authorization_with_prefix
+              uri: http://account-service:8081
+              predicates:
+                - Path=${app.api-prefix}/auth/oauth2/**
+              filters:
+                - RewritePath=/api/auth/oauth2/(?<remaining>.*), /oauth2/$\{remaining}
+            - id: oauth2_authorization
+              uri: http://account-service:8081
+              predicates:
+                - Path=/oauth2/authorization/**
+            - id: oauth2_callback
+              uri: http://account-service:8081
+              predicates:
+                - Path=/login/oauth2/code/**
+            - id: account_service
+              uri: http://account-service:8081
+              predicates:
+                - Path=${app.api-prefix}/auth/**
+            - id: payment_service
+              uri: http://payment-service:8082
+              predicates:
+                - Path=${app.api-prefix}/payments/**
+            - id: lesson_service
+              uri: http://lesson-service:8083
+              predicates:
+                - Path=${app.api-prefix}/lessons/**
+            - id: document_service
+              uri: http://document-service:8084
+              predicates:
+                - Path=${app.api-prefix}/documents/**
+            - id: question_service
+              uri: http://question-service:8085
+              predicates:
+                - Path=${app.api-prefix}/questions/**,${app.api-prefix}/mock-tests/**,${app.api-prefix}/mock-questions/**,${app.api-prefix}/mock-attempts/**

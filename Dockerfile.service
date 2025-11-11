@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.7
+ARG SERVICE_NAME=Service
+ARG SERVICE_PORT=8080
+
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+ARG SERVICE_NAME
+SHELL ["/bin/bash", "-c"]
+WORKDIR /workspace
+COPY ${SERVICE_NAME}/pom.xml ./pom.xml
+COPY ${SERVICE_NAME}/src ./src
+RUN mvn -q clean package -DskipTests \
+    && JAR_FILE=$(find target -maxdepth 1 -type f -name "*.jar" ! -name "*original*" | head -n 1) \
+    && test -n "$JAR_FILE" \
+    && cp "$JAR_FILE" app.jar
+
+FROM eclipse-temurin:21-jre
+ARG SERVICE_PORT=8080
+WORKDIR /app
+COPY --from=build /workspace/app.jar ./app.jar
+EXPOSE ${SERVICE_PORT}
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
