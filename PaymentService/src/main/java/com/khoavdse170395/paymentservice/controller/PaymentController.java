@@ -87,7 +87,7 @@ public class PaymentController {
         // Validate secure hash
         if (!validateSecureHash(params)) {
             logger.error("Invalid signature for VNPAY return");
-            String errorUrl = "http://localhost:5173/#payment-result?vnp_ResponseCode=97&error=invalid_signature";
+            String errorUrl = "http://localhost:5173/payment-result?vnp_ResponseCode=97&error=invalid_signature";
             response.sendRedirect(errorUrl);
             return;
         }
@@ -122,7 +122,7 @@ public class PaymentController {
             first = false;
         }
 
-        String frontendUrl = "http://localhost:5173/#payment-result?" + queryString.toString();
+        String frontendUrl = "http://localhost:5173/payment-result?" + queryString.toString();
         logger.info("Redirecting to frontend: {}", frontendUrl);
         response.sendRedirect(frontendUrl);
     }
@@ -151,7 +151,7 @@ public class PaymentController {
 
         long amountForVnp = amount != null ? amount * 100 : 0; // VNPay format (amount*100)
         String redirectUrl = String.format(
-            "http://localhost:5173/#payment-result?vnp_ResponseCode=%s&vnp_TxnRef=%s&vnp_TransactionNo=%s&vnp_Amount=%d",
+            "http://localhost:5173/payment-result?vnp_ResponseCode=%s&vnp_TxnRef=%s&vnp_TransactionNo=%s&vnp_Amount=%d",
             URLEncoder.encode(responseCode, StandardCharsets.UTF_8),
             URLEncoder.encode(txnRef == null ? "" : txnRef, StandardCharsets.UTF_8),
             URLEncoder.encode(transactionNo == null ? "" : transactionNo, StandardCharsets.UTF_8),
