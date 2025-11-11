@@ -28,15 +28,16 @@ public class MockQuestion {
     private Integer point;
 
     @ManyToOne
-    @JoinColumn(referencedColumnName = "id")
+    @JoinColumn(name = "test_id", referencedColumnName = "id")
     private MockTest test;
 
-    @OneToMany(cascade = CascadeType.ALL,  fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL,  fetch = FetchType.EAGER)
     private List<MockOption> options;
 
     @OneToOne(cascade = CascadeType.ALL,  fetch = FetchType.EAGER)
     private MockOption answer;
 
+    @Enumerated(EnumType.STRING)
     private QuestionType questionType;
 
     @CreationTimestamp

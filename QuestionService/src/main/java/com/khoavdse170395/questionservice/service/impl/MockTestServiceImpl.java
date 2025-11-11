@@ -1,10 +1,16 @@
 package com.khoavdse170395.questionservice.service.impl;
 
+import com.khoavdse170395.questionservice.client.lesson.LessonServiceClient;
+import com.khoavdse170395.questionservice.client.lesson.dto.LessonApiResponse;
+import com.khoavdse170395.questionservice.client.lesson.dto.LessonDTO;
+import com.khoavdse170395.questionservice.model.MockOption;
 import com.khoavdse170395.questionservice.model.MockQuestion;
 import com.khoavdse170395.questionservice.model.MockTest;
-import com.khoavdse170395.questionservice.model.dto.MockOptionDTO;
-import com.khoavdse170395.questionservice.model.dto.MockQuestionDTO;
-import com.khoavdse170395.questionservice.model.dto.MockTestDTO;
+import com.khoavdse170395.questionservice.model.MembershipTier;
+import com.khoavdse170395.questionservice.model.dto.request.MockTestRequestDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockOptionResponseDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockQuestionResponseDTO;
+import com.khoavdse170395.questionservice.model.dto.response.MockTestResponseDTO;
 import com.khoavdse170395.questionservice.repository.MockQuestionRepository;
 import com.khoavdse170395.questionservice.repository.MockTestRepository;
 import com.khoavdse170395.questionservice.service.MockTestService;
@@ -25,22 +31,23 @@ public class MockTestServiceImpl implements MockTestService {
 
     private final MockTestRepository mockTestRepository;
     private final MockQuestionRepository mockQuestionRepository;
+    private final LessonServiceClient lessonServiceClient;
 
     @Override
-    public MockTestDTO create(MockTestDTO dto) {
+    public MockTestResponseDTO create(MockTestRequestDTO dto) {
         MockTest entity = new MockTest();
         apply(dto, entity);
         MockTest saved = mockTestRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
-    public MockTestDTO update(Long id, MockTestDTO dto) {
+    public MockTestResponseDTO update(Long id, MockTestRequestDTO dto) {
         MockTest entity = mockTestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("MockTest not found: " + id));
         apply(dto, entity);
         MockTest saved = mockTestRepository.save(entity);
-        return toDTO(saved);
+        return toResponse(saved);
     }
 
     @Override
@@ -50,27 +57,39 @@ public class MockTestServiceImpl implements MockTestService {
 
     @Override
     @Transactional(readOnly = true)
-    public MockTestDTO getById(Long id) {
-        return mockTestRepository.findById(id).map(this::toDTO)
+    public MockTestResponseDTO getById(Long id) {
+        return mockTestRepository.findById(id).map(this::toResponse)
                 .orElseThrow(() -> new IllegalArgumentException("MockTest not found: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MockTestDTO> getAll() {
-        return mockTestRepository.findAll().stream().map(this::toDTO).toList();
+    public List<MockTestResponseDTO> getAll() {
+        return mockTestRepository.findAll().stream().map(this::toResponse).toList();
     }
 
-    private void apply(MockTestDTO dto, MockTest entity) {
+    @Override
+    @Transactional(readOnly = true)
+    public List<MockTestResponseDTO> getByLessonId(String lessonId) {
+        LessonApiResponse<LessonDTO> response = lessonServiceClient.getLessonById(lessonId);
+        LessonDTO lesson = response != null ? response.getData() : null;
+        if (lesson == null) {
+            throw new IllegalArgumentException("Lesson not found: " + lessonId);
+        }
+        return mockTestRepository.findByLessonId(lesson.getId()).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private void apply(MockTestRequestDTO dto, MockTest entity) {
         entity.setName(dto.getName());
         entity.setDuration(dto.getDurationSeconds() != null ? Duration.ofSeconds(dto.getDurationSeconds()) : null);
         entity.setTotalPoint(dto.getTotalPoint());
-        entity.setLessonPlanId(dto.getLessonPlanId());
-        entity.setSubscriptionPackageIds(dto.getSubscriptionPackageIds());
+        entity.setLessonId(dto.getLessonId());
+        entity.setRequiredTier(dto.getRequiredTier() != null ? dto.getRequiredTier() : MembershipTier.BASIC);
 
-        if (dto.getQuestions() != null) {
-            List<Long> ids = dto.getQuestions().stream()
-                    .map(MockQuestionDTO::getId)
+        if (dto.getQuestionIds() != null) {
+            List<Long> ids = dto.getQuestionIds().stream()
                     .filter(Objects::nonNull)
                     .toList();
             List<MockQuestion> questions = ids.isEmpty() ? new ArrayList<>() : mockQuestionRepository.findAllById(ids);
@@ -81,33 +100,33 @@ public class MockTestServiceImpl implements MockTestService {
         }
     }
 
-    private MockTestDTO toDTO(MockTest entity) {
-        List<MockQuestionDTO> questionDTOs = Optional.ofNullable(entity.getQuestions())
-                .map(list -> list.stream().map(this::toQuestionDTO).toList())
+    private MockTestResponseDTO toResponse(MockTest entity) {
+        List<MockQuestionResponseDTO> questionDTOs = Optional.ofNullable(entity.getQuestions())
+                .map(list -> list.stream().map(this::toQuestionResponse).toList())
                 .orElse(List.of());
 
-        return MockTestDTO.builder()
+        return MockTestResponseDTO.builder()
                 .id(entity.getId())
                 .name(entity.getName())
                 .durationSeconds(entity.getDuration() != null ? entity.getDuration().toSeconds() : null)
                 .totalPoint(entity.getTotalPoint())
-                .lessonPlanId(entity.getLessonPlanId())
-                .subscriptionPackageIds(entity.getSubscriptionPackageIds())
+                .lessonId(entity.getLessonId())
+                .requiredTier(entity.getRequiredTier())
                 .questions(questionDTOs)
                 .createdDate(entity.getCreatedDate())
                 .updatedDate(entity.getUpdatedDate())
                 .build();
     }
 
-    private MockQuestionDTO toQuestionDTO(MockQuestion q) {
-        return MockQuestionDTO.builder()
+    private MockQuestionResponseDTO toQuestionResponse(MockQuestion q) {
+        return MockQuestionResponseDTO.builder()
                 .id(q.getId())
                 .question(q.getQuestion())
                 .point(q.getPoint())
                 .questionType(q.getQuestionType())
                 .testId(q.getTest() != null ? q.getTest().getId() : null)
                 .options(Optional.ofNullable(q.getOptions()).orElse(List.of()).stream()
-                        .map(this::toOptionDTO)
+                        .map(this::toOptionResponse)
                         .toList())
                 .answerId(q.getAnswer() != null ? q.getAnswer().getId() : null)
                 .createdDate(q.getCreatedDate())
@@ -115,8 +134,8 @@ public class MockTestServiceImpl implements MockTestService {
                 .build();
     }
 
-    private MockOptionDTO toOptionDTO(com.khoavdse170395.questionservice.model.MockOption o) {
-        return com.khoavdse170395.questionservice.model.dto.MockOptionDTO.builder()
+    private MockOptionResponseDTO toOptionResponse(MockOption o) {
+        return MockOptionResponseDTO.builder()
                 .id(o.getId())
                 .name(o.getName())
                 .answer(o.isAnswer())

@@ -1,4 +1,4 @@
-package com.khoavdse170395.questionservice.model.dto;
+package com.khoavdse170395.questionservice.model.dto.response;
 
 import com.khoavdse170395.questionservice.model.QuestionType;
 import lombok.AllArgsConstructor;
@@ -12,11 +12,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MockAnswerDTO {
+public class MockAnswerResponseDTO {
     private Long id;
     private Long accountId;
     private Integer answerPoint;
+    private Integer maxPoint;
     private QuestionType questionType;
+    private String answerText;
+    private String comments;
     private Long mockOptionId;
     private Long mockQuestionId;
     private Long mockAttemptId;

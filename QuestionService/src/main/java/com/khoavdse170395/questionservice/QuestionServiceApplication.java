@@ -2,8 +2,12 @@ package com.khoavdse170395.questionservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableFeignClients(basePackages = "com.khoavdse170395.questionservice.client")
+@EnableScheduling
 public class QuestionServiceApplication {
 
 	public static void main(String[] args) {

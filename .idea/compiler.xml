@@ -18,6 +18,7 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
         <module name="LessonService" />
+        <module name="DocumentService" />
       </profile>
       <profile name="Annotation profile for QuestionService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -42,6 +43,7 @@
       <module name="AIService" options="-parameters" />
       <module name="AccountService" options="-parameters" />
       <module name="ApiGateway" options="-parameters" />
+      <module name="DocumentService" options="-parameters" />
       <module name="LessonService" options="-parameters" />
       <module name="PaymentService" options="-parameters" />
       <module name="QuestionService" options="-parameters" />

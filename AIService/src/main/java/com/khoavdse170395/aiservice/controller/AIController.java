@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -69,7 +70,7 @@ public class AIController {
 
     //nhớ phải tạo QuestionAnswerRequest và GradingResponse + thêm api key vào file yaml nha
     @PostMapping
-    public ApiResponse<GradingResponse> gradeFRQForLiteratureSubject(QuestionAnswerRequest questionAnswerRequest){
+    public ApiResponse<GradingResponse> gradeFRQForLiteratureSubject(@RequestBody QuestionAnswerRequest questionAnswerRequest){
         var renderer = StTemplateRenderer.builder()
                 .startDelimiterToken('<')
                 .endDelimiterToken('>')

@@ -1,5 +1,7 @@
 package com.khoavdse170395.questionservice.security;
 
+import com.khoavdse170395.questionservice.client.AccountServiceClient;
+import com.khoavdse170395.questionservice.client.dto.AccountDTO;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -21,6 +24,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
+    private final AccountServiceClient accountServiceClient;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -30,8 +34,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromJWT(jwt);
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+
+                AccountDTO account = null;
+                try {
+                    account = accountServiceClient.getMe();
+                    if (account != null && account.getRole() != null && StringUtils.hasText(account.getRole().getRoleName())) {
+                        String roleName = account.getRole().getRoleName().trim().toUpperCase();
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+                    }
+                } catch (Exception ignored) {
+                    // fall back to default ROLE_USER when account service is unavailable
+                }
+
+                Object principal = account != null ? account : username;
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(username, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }

@@ -30,12 +30,13 @@ public class MockTest {
 
     private Integer totalPoint;
 
-    private Long lessonPlanId;
+    @Column(name = "lesson_id")
+    private String lessonId;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    private List<Long> subscriptionPackageIds;
+    @Enumerated(EnumType.STRING)
+    private MembershipTier requiredTier;
 
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "test", fetch = FetchType.EAGER)
     private List<MockQuestion> questions;
 
     @CreationTimestamp

@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.aspectj.weaver.patterns.TypePatternQuestions;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -23,13 +22,18 @@ public class MockAnswer {
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    private Long accountId;
+    @Column(columnDefinition = "TEXT")
+    private String answerText;
+
+    @Column(columnDefinition = "TEXT")
+    private String comments;
 
     private Integer answerPoint;
 
+    @Enumerated(EnumType.STRING)
     private QuestionType questionType;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(referencedColumnName = "id")
     private MockOption mockOption;
 
