@@ -16,7 +16,7 @@ spring:
             - id: account_service
               uri: http://localhost:8081
               predicates:
-                - Path=${app.api-prefix}/**
+                - Path=${app.api-prefix}/auth/**
             - id: payment_service
               uri: http://localhost:8082
               predicates:
@@ -29,8 +29,7 @@ spring:
               uri: http://localhost:8084
               predicates:
                 - Path=${app.api-prefix}/documents/**
-
             - id: question_service
-              uri: http://localhost:8084
+              uri: http://localhost:8085
               predicates:
-                - Path=${app.api-prefix}/payments/**
+                - Path=${app.api-prefix}/questions/**,${app.api-prefix}/mock-tests/**,${app.api-prefix}/mock-questions/**,${app.api-prefix}/mock-attempts/**
