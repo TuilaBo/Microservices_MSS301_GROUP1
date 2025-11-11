@@ -41,6 +41,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             "/auth/register",
             "/auth/register-teacher",
             "/auth/login",
+            "/auth/oauth2/**",  // OAuth2 endpoints (authorization, callback)
+            "/oauth2/**",       // OAuth2 authorization endpoints (without /api/auth prefix)
+            "/login/oauth2/**", // OAuth2 callback endpoints
             "/lessons/public/**"
 
     };
@@ -52,13 +55,16 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         log.info("Enter authentication filter....");
-        log.info("Gateway path: {}", exchange.getRequest().getURI().getPath());
+        String path = exchange.getRequest().getURI().getPath();
+        log.info("Gateway path: {}", path);
         if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }
 
-        if (isPublicEndpoint(exchange.getRequest()))
+        if (isPublicEndpoint(exchange.getRequest())) {
+            log.info("Public endpoint, allowing request: {}", path);
             return chain.filter(exchange);
+        }
 
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader))

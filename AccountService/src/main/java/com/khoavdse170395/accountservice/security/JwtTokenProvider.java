@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
 
@@ -32,14 +33,32 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Authentication authentication) {
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        String username;
+        Collection<? extends GrantedAuthority> authorities;
+        
+        // Handle different principal types
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof CustomUserDetails) {
+            // Regular login with CustomUserDetails
+            CustomUserDetails userDetails = (CustomUserDetails) principal;
+            username = userDetails.getUsername();
+            authorities = userDetails.getAuthorities();
+        } else if (principal instanceof String) {
+            // OAuth2 login with email as String
+            username = (String) principal;
+            authorities = authentication.getAuthorities();
+        } else {
+            // Fallback: try to get name from authentication
+            username = authentication.getName();
+            authorities = authentication.getAuthorities();
+        }
+        
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
-                .claim("scp", userDetails.getAuthorities()
-                        .stream()
+                .setSubject(username)
+                .claim("scp", authorities.stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList()))
                 .setIssuedAt(new Date())
