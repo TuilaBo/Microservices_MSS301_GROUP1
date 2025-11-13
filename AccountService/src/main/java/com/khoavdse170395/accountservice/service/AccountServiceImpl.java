@@ -1,25 +1,33 @@
 package com.khoavdse170395.accountservice.service;
 
 import com.khoavdse170395.accountservice.model.Account;
+import com.khoavdse170395.accountservice.model.PasswordResetToken;
 import com.khoavdse170395.accountservice.model.Role;
 import com.khoavdse170395.accountservice.model.VerificationCode;
+import com.khoavdse170395.accountservice.model.dto.AccountCreateRequest;
 import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
 import com.khoavdse170395.accountservice.repository.AccountRepository;
+import com.khoavdse170395.accountservice.repository.PasswordResetTokenRepository;
 import com.khoavdse170395.accountservice.repository.RoleRepository;
 import com.khoavdse170395.accountservice.repository.VerificationCodeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
+import java.util.Objects;
 
 @Service
 @FeignClient(name = "account-service", url = "http://localhost:8081")
@@ -34,6 +42,8 @@ public class AccountServiceImpl implements AccountService {
     private VerificationCodeRepository verificationCodeRepository;
     @Autowired
     private EmailService emailService;
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Override
     public List<Account> getAllAccounts() {
@@ -53,10 +63,10 @@ public class AccountServiceImpl implements AccountService {
         }
         
         account.setPassword(passwordEncoder.encode(account.getPassword()));
-        // Ensure role is set; default to USER if not provided
+        // Ensure role is set; default to STUDENT if not provided
         if (account.getRole() == null) {
-            Role defaultRole = roleRepository.findByRoleName("USER")
-                    .orElseThrow(() -> new IllegalStateException("Default role USER is missing"));
+            Role defaultRole = roleRepository.findByRoleName("STUDENT")
+                    .orElseThrow(() -> new IllegalStateException("Default role STUDENT is missing"));
             account.setRole(defaultRole);
         }
         // Set account as inactive until email verification
@@ -115,9 +125,10 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Account updateAccount(long id,Account account) {
-        if(!accountRepository.existsById(account.getUserId()) ){
+        if(!accountRepository.existsById(id) ){
             throw new RuntimeException("Account not found");
         } else {
+            account.setUserId(id);
             return accountRepository.save(account);
         }
     }
@@ -155,7 +166,11 @@ public class AccountServiceImpl implements AccountService {
         return account;
     }
 
+    @SuppressWarnings("null")
     private AccountResponseDTO mapToResponseDTO(Account account) {
+        if (account == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Account data is missing");
+        }
         return AccountResponseDTO.builder()
                 .userId(account.getUserId())
                 .username(account.getUsername())
@@ -192,8 +207,7 @@ public class AccountServiceImpl implements AccountService {
                 .isUsed(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        
-        verificationCodeRepository.save(verificationCode);
+        verificationCodeRepository.save(Objects.requireNonNull(verificationCode));
         
         // Send email
         emailService.sendVerificationCode(email, code);
@@ -211,14 +225,9 @@ public class AccountServiceImpl implements AccountService {
         }
         
         // Find valid verification code
-        Optional<VerificationCode> verificationCodeOpt = verificationCodeRepository
-                .findByCodeAndAccountAndIsUsedFalseAndExpiresAtAfter(code, account, now);
-        
-        if (verificationCodeOpt.isEmpty()) {
-            throw new RuntimeException("Invalid or expired verification code");
-        }
-        
-        VerificationCode verificationCode = verificationCodeOpt.get();
+        VerificationCode verificationCode = verificationCodeRepository
+                .findByCodeAndAccountAndIsUsedFalseAndExpiresAtAfter(code, account, now)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired verification code"));
         
         // Mark code as used
         verificationCode.setIsUsed(true);
@@ -226,7 +235,7 @@ public class AccountServiceImpl implements AccountService {
         
         // Activate account
         account.setActive(true);
-        accountRepository.save(account);
+        accountRepository.save(Objects.requireNonNull(account));
     }
 
     private String generateVerificationCode() {
@@ -280,5 +289,159 @@ public class AccountServiceImpl implements AccountService {
         }
 
         return account;
+    }
+
+    @Override
+    @Transactional
+    public void requestPasswordReset(String email) {
+        Account account = accountRepository.findByEmail(email);
+        if (account == null) {
+            return;
+        }
+
+        Long userId = account.getUserId();
+        if (userId != null) {
+            passwordResetTokenRepository.deleteByAccount_UserId(userId);
+        }
+
+        String token = UUID.randomUUID().toString().replace("-", "");
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .account(account)
+                .createdAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusMinutes(15))
+                .used(false)
+                .build();
+        passwordResetTokenRepository.save(Objects.requireNonNull(resetToken));
+
+        emailService.sendPasswordResetEmail(account.getEmail(), token);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired token"));
+
+        if (resetToken.getUsed() || resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Invalid or expired token");
+        }
+
+        Account account = resetToken.getAccount();
+        account.setPassword(passwordEncoder.encode(newPassword));
+        accountRepository.save(Objects.requireNonNull(account));
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(Objects.requireNonNull(resetToken));
+    }
+
+    @Override
+    @Transactional
+    public AccountResponseDTO updateAccountStatus(Long userId, boolean active) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User id is required");
+        }
+        Account account = accountRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+        account.setActive(active);
+        Account savedAccount = Optional.ofNullable(accountRepository.save(account))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create account"));
+        return mapToResponseDTO(savedAccount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountResponseDTO> getAccountsByRole(String roleName) {
+        return accountRepository.findAllByRole_RoleNameIgnoreCase(roleName)
+                .stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AccountResponseDTO getAccountDetail(long userId) {
+        Account account = accountRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+        return mapToResponseDTO(account);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("null")
+    public AccountResponseDTO createAccountByAdmin(AccountCreateRequest request, String roleName) {
+        if (accountRepository.findByUsername(request.getUsername()) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        }
+        if (accountRepository.findByEmail(request.getEmail()) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
+        }
+
+        String effectiveRole = StringUtils.hasText(roleName) ? roleName.toUpperCase() : "STUDENT";
+        Role role = roleRepository.findByRoleName(effectiveRole)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + effectiveRole));
+
+        Account account = Account.builder()
+                .username(request.getUsername())
+                .fullName(request.getFullName())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .gender(request.getGender())
+                .birthday(request.getBirthday())
+                .role(role)
+                .active(true)
+                .build();
+
+        return mapToResponseDTO(Objects.requireNonNull(accountRepository.save(account)));
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("null")
+    public AccountResponseDTO updateAccountByAdmin(long userId, AccountCreateRequest request, String roleName) {
+        Account existing = accountRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        Account usernameOwner = accountRepository.findByUsername(request.getUsername());
+        if (usernameOwner != null && !usernameOwner.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        }
+
+        Account emailOwner = accountRepository.findByEmail(request.getEmail());
+        if (emailOwner != null && !emailOwner.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
+        }
+
+        existing.setUsername(request.getUsername());
+        existing.setFullName(request.getFullName());
+        if (StringUtils.hasText(request.getPassword())) {
+            existing.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        existing.setEmail(request.getEmail());
+        existing.setGender(request.getGender());
+        existing.setBirthday(request.getBirthday());
+
+        if (StringUtils.hasText(roleName)) {
+            Role role = roleRepository.findByRoleName(roleName.toUpperCase())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + roleName));
+            existing.setRole(role);
+        }
+
+        Account updated = Optional.ofNullable(accountRepository.save(existing))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to update account"));
+        return mapToResponseDTO(updated);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAccountByAdmin(long userId) {
+        if (userId == 0L) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User id is required");
+        }
+        if (!accountRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
+        }
+        passwordResetTokenRepository.deleteByAccount_UserId(userId);
+        accountRepository.deleteById(userId);
     }
 }

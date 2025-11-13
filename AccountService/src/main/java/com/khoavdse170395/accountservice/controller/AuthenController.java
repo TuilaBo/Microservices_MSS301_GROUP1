@@ -3,8 +3,10 @@ package com.khoavdse170395.accountservice.controller;
 import com.khoavdse170395.accountservice.model.Account;
 import com.khoavdse170395.accountservice.model.dto.AccountCreateRequest;
 import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
+import com.khoavdse170395.accountservice.model.dto.ForgotPasswordRequest;
 import com.khoavdse170395.accountservice.model.dto.JWTAuthResponse;
 import com.khoavdse170395.accountservice.model.dto.LoginDto;
+import com.khoavdse170395.accountservice.model.dto.ResetPasswordRequest;
 import com.khoavdse170395.accountservice.model.dto.ResendCodeRequest;
 import com.khoavdse170395.accountservice.model.dto.VerifyRequest;
 import com.khoavdse170395.accountservice.security.JwtTokenProvider;
@@ -150,6 +152,22 @@ public class AuthenController {
     public ResponseEntity<String> resendVerificationCode(@RequestBody @Valid ResendCodeRequest request) {
         accountService.sendVerificationCode(request.getEmail());
         return new ResponseEntity<>("Verification code sent to your email!", HttpStatus.OK);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        accountService.requestPasswordReset(request.getEmail());
+        return ResponseEntity.ok("If the account exists, a reset token has been sent to the email.");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody @Valid ResetPasswordRequest request) {
+        try {
+            accountService.resetPassword(request.getToken(), request.getNewPassword());
+            return ResponseEntity.ok("Password has been reset successfully.");
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+        }
     }
 
     @GetMapping("/google")
