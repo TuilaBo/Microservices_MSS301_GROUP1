@@ -1,6 +1,7 @@
 package com.khoavdse170395.accountservice.service;
 
 import com.khoavdse170395.accountservice.model.Account;
+import com.khoavdse170395.accountservice.model.dto.AccountCreateRequest;
 import com.khoavdse170395.accountservice.model.dto.AccountResponseDTO;
 import org.springframework.stereotype.Service;
 
@@ -22,4 +23,12 @@ public interface AccountService {
     void verifyAccount(String email, String code);
     void validateFptEmailForLogin(String usernameOrEmail);
     Account processOAuth2Login(String email, String name);
+    void requestPasswordReset(String email);
+    void resetPassword(String token, String newPassword);
+    AccountResponseDTO updateAccountStatus(Long userId, boolean active);
+    List<AccountResponseDTO> getAccountsByRole(String roleName);
+    AccountResponseDTO getAccountDetail(long userId);
+    AccountResponseDTO createAccountByAdmin(AccountCreateRequest request, String roleName);
+    AccountResponseDTO updateAccountByAdmin(long userId, AccountCreateRequest request, String roleName);
+    void deleteAccountByAdmin(long userId);
 }
