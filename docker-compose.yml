@@ -13,7 +13,15 @@ services:
     ports:
       - "8081:8081"
     environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
       SPRING_DATASOURCE_URL: "jdbc:sqlserver://host.docker.internal:1433;databaseName=AccountServiceMSSDB;encrypt=true;trustServerCertificate=true"
+      SPRING_MAIL_HOST: "smtp.gmail.com"
+      SPRING_MAIL_PORT: "587"
+      SPRING_MAIL_USERNAME: "dangkhoavo10@gmail.com"
+      SPRING_MAIL_PASSWORD: "edgmibsskfhhnfvs"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -32,6 +40,7 @@ services:
     ports:
       - "8082:8082"
     environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
       SPRING_DATASOURCE_URL: "jdbc:sqlserver://host.docker.internal:1433;databaseName=PaymentServiceDB;encrypt=false;trustServerCertificate=true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -51,6 +60,7 @@ services:
     ports:
       - "8083:8083"
     environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
       SPRING_DATA_MONGODB_URI: "mongodb://host.docker.internal:27017/lessondb"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -70,6 +80,7 @@ services:
     ports:
       - "8084:8084"
     environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
       SPRING_DATA_MONGODB_URI: "mongodb://host.docker.internal:27017/document"
       APP_UPLOAD_DIR: "/app/uploads/documents"
     volumes:
@@ -92,6 +103,7 @@ services:
     ports:
       - "8085:8085"
     environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
       SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5432/question_service_db"
       SERVICES_ACCOUNT_BASE_URL: "http://account-service:8081"
       SERVICES_LESSON_BASE_URL: "http://lesson-service:8083"
@@ -116,7 +128,8 @@ services:
     ports:
       - "8888:8888"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dspring.profiles.active=docker"
+      SPRING_PROFILES_ACTIVE: "docker"
     depends_on:
       - account-service
       - payment-service
@@ -141,6 +154,8 @@ services:
     container_name: ai-service
     ports:
       - "8089:8089"
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

@@ -35,7 +35,7 @@ spring:
               uri: http://payment-service:8082
               predicates:
                 - Path=${app.api-prefix}/payments/**
-            - id: payment_service
+            - id: membership_service
               uri: http://payment-service:8082
               predicates:
                 - Path=${app.api-prefix}/memberships/**

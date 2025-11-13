@@ -6,16 +6,44 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 ARG SERVICE_NAME
 SHELL ["/bin/bash", "-c"]
 WORKDIR /workspace
+
+# Copy pom.xml first for dependency caching
 COPY ${SERVICE_NAME}/pom.xml ./pom.xml
+
+# Download dependencies separately for better caching
+RUN mvn dependency:go-offline -B || true
+
+# Copy entire src directory including all resources (properties, yml, yaml, templates, etc.)
 COPY ${SERVICE_NAME}/src ./src
-RUN mvn -q clean package -DskipTests \
+
+# Verify resources are copied
+RUN echo "Checking resources directory:" \
+    && ls -la src/main/resources/ || echo "No resources directory found"
+
+# Build the application with all resources included
+RUN mvn clean package -DskipTests -B -e \
     && JAR_FILE=$(find target -maxdepth 1 -type f -name "*.jar" ! -name "*original*" | head -n 1) \
-    && test -n "$JAR_FILE" \
+    && if [ -z "$JAR_FILE" ]; then \
+         echo "ERROR: No JAR file found!"; \
+         ls -la target/ || true; \
+         exit 1; \
+       fi \
+    && echo "Found JAR: $JAR_FILE" \
+    && echo "Verifying JAR contents:" \
+    && jar tf "$JAR_FILE" | grep -E "(application.*\.(properties|yml|yaml)|templates/)" || echo "Warning: Some resources might be missing" \
     && cp "$JAR_FILE" app.jar
 
 FROM eclipse-temurin:21-jre
 ARG SERVICE_PORT=8080
 WORKDIR /app
+
+# Copy the jar file from build stage
 COPY --from=build /workspace/app.jar ./app.jar
+
+# Verify JAR file exists and is valid
+RUN test -f app.jar && echo "JAR file ready: $(ls -lh app.jar)"
+
 EXPOSE ${SERVICE_PORT}
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# Use JAVA_OPTS for additional JVM options and Spring profiles
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar /app/app.jar"]
