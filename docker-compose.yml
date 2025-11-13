@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  account-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: AccountService
+        SERVICE_PORT: 8081
+    image: microservices/account-service:latest
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:sqlserver://host.docker.internal:1433;databaseName=AccountServiceMSSDB;encrypt=true;trustServerCertificate=true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: PaymentService
+        SERVICE_PORT: 8082
+    image: microservices/payment-service:latest
+    container_name: payment-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:sqlserver://host.docker.internal:1433;databaseName=PaymentServiceDB;encrypt=false;trustServerCertificate=true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  lesson-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: LessonService
+        SERVICE_PORT: 8083
+    image: microservices/lesson-service:latest
+    container_name: lesson-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATA_MONGODB_URI: "mongodb://host.docker.internal:27017/lessondb"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  document-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: DocumentService
+        SERVICE_PORT: 8084
+    image: microservices/document-service:latest
+    container_name: document-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATA_MONGODB_URI: "mongodb://host.docker.internal:27017/document"
+      APP_UPLOAD_DIR: "/app/uploads/documents"
+    volumes:
+      - ./uploads/documents:/app/uploads/documents
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  question-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: QuestionService
+        SERVICE_PORT: 8085
+    image: microservices/question-service:latest
+    container_name: question-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5432/question_service_db"
+      SERVICES_ACCOUNT_BASE_URL: "http://account-service:8081"
+      SERVICES_LESSON_BASE_URL: "http://lesson-service:8083"
+      SERVICES_API_GATEWAY_BASE_URL: "http://api-gateway:8888"
+      SERVICES_AI_BASE_URL: "http://ai-service:8089"
+      SERVICES_PAYMENT_BASE_URL: "http://payment-service:8082"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: ApiGateway
+        SERVICE_PORT: 8888
+    image: microservices/api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - account-service
+      - payment-service
+      - lesson-service
+      - document-service
+      - question-service
+      - ai-service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: AIService
+        SERVICE_PORT: 8089
+    image: microservices/ai-service:latest
+    container_name: ai-service
+    ports:
+      - "8089:8089"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+networks:
+  microservices:
+    driver: bridge

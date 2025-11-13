@@ -141,6 +141,37 @@ public class PaymentServiceImpl implements PaymentService {
         ));
     }
 
+    @Override
+    @Transactional
+    public void cancelPayment(String txnRef) {
+        PaymentEntity p = paymentRepo.findByTxnRef(txnRef).orElseThrow(
+                () -> new RuntimeException("Payment not found with txnRef=" + txnRef)
+        );
+
+        // Don't cancel if already succeeded
+        if ("SUCCEEDED".equals(p.getStatus())) {
+            throw new IllegalStateException("Cannot cancel succeeded payment");
+        }
+
+        // Update payment status to CANCELED
+        p.setStatus("CANCELED");
+        p.setReason("User canceled payment");
+        p.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
+        paymentRepo.save(p);
+
+        // Update order status to CANCELED
+        OrderEntity order = orderRepo.findById(p.getOrderId()).orElseThrow();
+        order.setStatus("CANCELED");
+        orderRepo.save(order);
+
+        // Emit outbox event
+        emitOutbox("PAYMENT_CANCELED", "Payment", p.getId(), Map.of(
+                "orderId", order.getId(),
+                "txnRef", p.getTxnRef(),
+                "reason", "User canceled"
+        ));
+    }
+
     private void emitOutbox(String type, String aggType, Integer aggId, Map<String,Object> payload){
         try{
             OutboxEvent ev = new OutboxEvent();

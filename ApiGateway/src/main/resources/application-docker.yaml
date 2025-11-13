@@ -13,44 +13,41 @@ spring:
       server:
         webflux:
           routes:
-            # OAuth2 endpoints (must be before account_service to match first)
-            # Route for /api/auth/oauth2/** - rewrite to /oauth2/**
             - id: oauth2_authorization_with_prefix
-              uri: http://localhost:8081
+              uri: http://account-service:8081
               predicates:
                 - Path=${app.api-prefix}/auth/oauth2/**
               filters:
                 - RewritePath=/api/auth/oauth2/(?<remaining>.*), /oauth2/$\{remaining}
             - id: oauth2_authorization
-              uri: http://localhost:8081
+              uri: http://account-service:8081
               predicates:
                 - Path=/oauth2/authorization/**
             - id: oauth2_callback
-              uri: http://localhost:8081
+              uri: http://account-service:8081
               predicates:
                 - Path=/login/oauth2/code/**
-            # Account service routes
             - id: account_service
-              uri: http://localhost:8081
+              uri: http://account-service:8081
               predicates:
                 - Path=${app.api-prefix}/auth/**
             - id: payment_service
-              uri: http://localhost:8082
+              uri: http://payment-service:8082
               predicates:
                 - Path=${app.api-prefix}/payments/**
             - id: payment_service
-              uri: http://localhost:8082
+              uri: http://payment-service:8082
               predicates:
                 - Path=${app.api-prefix}/memberships/**
             - id: lesson_service
-              uri: http://localhost:8083
+              uri: http://lesson-service:8083
               predicates:
                 - Path=${app.api-prefix}/lessons/**
             - id: document_service
-              uri: http://localhost:8084
+              uri: http://document-service:8084
               predicates:
                 - Path=${app.api-prefix}/documents/**
             - id: question_service
-              uri: http://localhost:8085
+              uri: http://question-service:8085
               predicates:
                 - Path=${app.api-prefix}/questions/**,${app.api-prefix}/mock-tests/**,${app.api-prefix}/mock-questions/**,${app.api-prefix}/mock-attempts/**

@@ -11,4 +11,6 @@ public interface PaymentService {
     void markSucceeded(String txnRef, String transactionNo);
 
     void markFailed(String txnRef, String reason);
+
+    void cancelPayment(String txnRef);
 }
